@@ -34,7 +34,7 @@ function createApp(options = {}) {
     crossOriginEmbedderPolicy: false
   }));
   app.use(express.json({ limit: "16kb", strict: true }));
-  app.use("/assets", express.static(path.join(__dirname, "public"), {
+  app.use("/public", express.static(path.join(__dirname, "public"), {
     etag: true,
     maxAge: 0,
     index: false
