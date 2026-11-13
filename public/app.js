@@ -94,11 +94,24 @@ function openWhatsApp(registration) {
 }
 
 async function postJson(url, payload) {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
+  let response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error("Cannot reach the registration server. Run npm start and open http://localhost:3000.");
+    }
+    throw error;
+  }
+
+  if (!(response.headers.get("content-type") || "").toLowerCase().includes("application/json")) {
+    throw new Error("This page is not connected to the registration API. Run npm start and open http://localhost:3000.");
+  }
+
   const result = await response.json();
   if (!response.ok) throw new Error(result.error || "Request failed. Please try again.");
   return result;
