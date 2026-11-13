@@ -3,7 +3,7 @@ const payButton = document.querySelector("#pay-button");
 const formError = document.querySelector("#form-error");
 const registrationPanel = document.querySelector("#registration-panel");
 const confirmation = document.querySelector("#confirmation");
-const whatsappRecipient = "919150792336";
+const whatsappRecipient = "9629255773";
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
