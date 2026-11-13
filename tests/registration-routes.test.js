@@ -28,13 +28,6 @@ async function withServer(fetchHandler, callback, options = {}) {
   process.env.RAZORPAY_KEY_SECRET = "test_secret";
 
   const store = {
-    submitRegistration: async (details) => ({
-      registrationId: "FD26-TEST",
-      fullName: details.fullName,
-      registrationFee: details.registrationFee,
-      paymentStatus: "UNPAID",
-      duplicate: false
-    }),
     findRegistrationForEmail: async () => null,
     createOrder: async (_details, orderFactory) => ({ orderId: (await orderFactory()).id }),
     completeRegistration: async (details) => ({
@@ -44,7 +37,7 @@ async function withServer(fetchHandler, callback, options = {}) {
       paymentStatus: "PAID"
     })
   };
-  const server = createApp({ store, paymentsEnabled: options.paymentsEnabled === true }).listen(0);
+  const server = createApp({ store, paymentsEnabled: options.paymentsEnabled }).listen(0);
   await new Promise((resolve) => server.once("listening", resolve));
   const address = `http://127.0.0.1:${server.address().port}`;
 
@@ -89,27 +82,17 @@ test("creates a server-priced ₹250 INR order and validates required details", 
   }, { paymentsEnabled: true });
 });
 
-test("saves an unpaid registration and keeps payment endpoints disabled", async () => {
+test("keeps payment endpoints disabled when explicitly configured", async () => {
   await withServer(async () => {
     throw new Error("No external payment request should be made.");
   }, async (address) => {
-    const response = await fetch(`${address}/api/registrations`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...registration, registrationFee: 1, currency: "USD" })
-    });
-    const result = await response.json();
-    assert.equal(response.status, 201);
-    assert.equal(result.registration.registrationFee, 250);
-    assert.equal(result.registration.paymentStatus, "UNPAID");
-
-    const payment = await fetch(`${address}/api/orders`, {
+    const response = await fetch(`${address}/api/orders`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(registration)
     });
-    assert.equal(payment.status, 410);
-  });
+    assert.equal(response.status, 410);
+  }, { paymentsEnabled: false });
 });
 
 test("rejects bad signatures and only records captured matching payments", async () => {

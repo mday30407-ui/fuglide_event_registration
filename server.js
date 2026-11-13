@@ -41,7 +41,7 @@ function createApp(options = {}) {
   }));
   app.use("/api", createRegistrationRouter({
     store,
-    paymentsEnabled: options.paymentsEnabled === true
+    paymentsEnabled: options.paymentsEnabled !== false
   }));
   app.get("/", (_request, response) => response.sendFile(path.join(__dirname, "index.html")));
   app.use((error, _request, response, _next) => {

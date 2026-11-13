@@ -150,11 +150,11 @@ legend {
 .payment-row { display: flex; justify-content: space-between; gap: 1rem; padding: 0.45rem 0; color: var(--muted); font-size: 0.94rem; }
 .payment-row--total { margin-top: 0.35rem; padding-top: 0.8rem; border-top: 1px solid rgba(255, 255, 255, 0.1); color: var(--text); }
 .payment-row--total strong { color: var(--gold); font-size: 1.1rem; }
-.payment-unavailable { margin: 0.75rem 0 0; color: var(--muted); font-size: 0.8rem; line-height: 1.5; }
+.payment-methods { margin: 0.75rem 0 0; color: var(--muted); font-size: 0.76rem; line-height: 1.6; }
 .whatsapp-note { margin: 0 0 0.85rem; color: var(--muted); font-size: 0.78rem; line-height: 1.5; text-align: center; }
 .form-error { margin: 0 0 1rem; color: var(--danger); font-size: 0.9rem; }
 
-.submit-button,
+.pay-button,
 .print-button {
   display: block;
   width: 100%;
@@ -169,8 +169,8 @@ legend {
   box-shadow: 0 8px 24px rgba(232, 182, 80, 0.14);
 }
 
-.submit-button:hover:not(:disabled), .print-button:hover { filter: brightness(1.06); }
-.submit-button:disabled { cursor: wait; opacity: 0.7; }
+.pay-button:hover:not(:disabled), .print-button:hover { filter: brightness(1.06); }
+.pay-button:disabled { cursor: wait; opacity: 0.7; }
 .confirmation-card { outline: none; text-align: center; }
 .confirmation-eyebrow { margin-bottom: 0.6rem; }
 .confirmation-card h2 { margin: 0 0 1.7rem; font-size: clamp(1.35rem, 4vw, 1.85rem); letter-spacing: -0.035em; }

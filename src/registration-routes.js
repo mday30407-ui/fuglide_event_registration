@@ -9,7 +9,7 @@ const {
 
 const PAISA_AMOUNT = REGISTRATION_FEE * 100;
 
-function createRegistrationRouter({ store, paymentsEnabled = false }) {
+function createRegistrationRouter({ store, paymentsEnabled = true }) {
   const router = express.Router();
   router.use(rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -18,20 +18,6 @@ function createRegistrationRouter({ store, paymentsEnabled = false }) {
     legacyHeaders: false,
     message: { error: "Too many requests. Please wait and try again." }
   }));
-
-  router.post("/registrations", async (request, response) => {
-    try {
-      const registration = validateRegistration(request.body);
-      const result = await store.submitRegistration(registration);
-      return response.status(result.duplicate ? 200 : 201).json({ registration: result });
-    } catch (error) {
-      if (error instanceof ValidationError || error.statusCode === 409) {
-        return response.status(error.statusCode).json({ error: error.message });
-      }
-      console.error("Unable to save registration:", error);
-      return response.status(500).json({ error: "Unable to submit registration. Please try again." });
-    }
-  });
 
   router.post("/orders", async (request, response) => {
     if (!paymentsEnabled) {

@@ -6,8 +6,9 @@
     <meta name="theme-color" content="#07101f">
     <meta name="description" content="Register for FU-GLIDE's FOUNDER'S DIARY 2026.">
     <title>FOUNDER'S DIARY 2026 | Registration</title>
-    <link rel="stylesheet" href="/assets/registration.css?v=unpaid-registration">
-    <script src="/assets/app.js?v=unpaid-registration" defer></script>
+    <link rel="stylesheet" href="/assets/registration.css?v=razorpay-payment">
+    <script src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
+    <script src="/assets/app.js?v=razorpay-payment" defer></script>
   </head>
   <body>
     <main class="registration-shell">
@@ -108,12 +109,12 @@
               <span>Total Amount</span>
               <strong>₹250</strong>
             </div>
-            <p class="payment-unavailable">Online payment is temporarily unavailable.</p>
+            <p class="payment-methods">UPI · Google Pay · PhonePe · Debit Card · Credit Card · Net Banking</p>
           </section>
 
           <p class="form-error" id="form-error" role="alert" tabindex="-1" hidden></p>
-          <p class="whatsapp-note">WhatsApp will open with your details ready to review and send. This registration will be recorded as unpaid.</p>
-          <button class="submit-button" id="submit-button" type="submit">Submit Registration</button>
+          <p class="whatsapp-note">WhatsApp will open with your details ready to review and send. Payment is handled separately.</p>
+          <button class="pay-button" id="pay-button" type="submit">Proceed to Payment – ₹250</button>
         </form>
       </section>
 
@@ -122,8 +123,8 @@
         <dl class="confirmation-details">
           <div><dt>Registration ID</dt><dd id="confirmation-id"></dd></div>
           <div><dt>Participant Name</dt><dd id="confirmation-name"></dd></div>
-          <div><dt>Registration Fee</dt><dd>₹250</dd></div>
-          <div><dt>Payment Status</dt><dd id="confirmation-status">UNPAID</dd></div>
+          <div><dt>Amount Paid</dt><dd>₹250</dd></div>
+          <div><dt>Payment Status</dt><dd id="confirmation-status">PAID</dd></div>
         </dl>
         <button class="print-button" id="print-button" type="button">Print / Save Confirmation</button>
       </section>

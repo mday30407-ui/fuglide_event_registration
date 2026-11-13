@@ -1,5 +1,5 @@
 const form = document.querySelector("#registration-form");
-const submitButton = document.querySelector("#submit-button");
+const payButton = document.querySelector("#pay-button");
 const formError = document.querySelector("#form-error");
 const registrationPanel = document.querySelector("#registration-panel");
 const confirmation = document.querySelector("#confirmation");
@@ -13,10 +13,50 @@ form.addEventListener("submit", async (event) => {
   const registration = Object.fromEntries(new FormData(form).entries());
   if (!openWhatsApp(registration)) return;
 
-  setBusy(true);
+  if (!window.Razorpay) {
+    showError("Payment checkout could not be loaded. Check your connection and try again.");
+    return;
+  }
+
+  setBusy(true, "Preparing secure payment…");
   try {
-    const result = await postJson("/api/registrations", registration);
-    showConfirmation(result.registration);
+    const order = await postJson("/api/orders", registration);
+    if (order.completed) {
+      showConfirmation(order.registration);
+      return;
+    }
+
+    const checkout = new Razorpay({
+      key: order.keyId,
+      amount: order.amount,
+      currency: order.currency,
+      name: "FU-GLIDE",
+      description: "FOUNDER'S DIARY 2026 Registration",
+      order_id: order.orderId,
+      prefill: { name: order.name, email: order.email, contact: order.mobile },
+      theme: { color: "#e8b650" },
+      handler: async (payment) => {
+        setBusy(true, "Verifying payment…");
+        try {
+          const result = await postJson("/api/verify", {
+            ...registration,
+            razorpay_order_id: payment.razorpay_order_id,
+            razorpay_payment_id: payment.razorpay_payment_id,
+            razorpay_signature: payment.razorpay_signature
+          });
+          showConfirmation(result.registration);
+        } catch (error) {
+          showError(error.message);
+          setBusy(false);
+        }
+      },
+      modal: { ondismiss: () => setBusy(false) }
+    });
+    checkout.on("payment.failed", (payment) => {
+      showError(payment.error && payment.error.description || "Payment failed. You can try again.");
+      setBusy(false);
+    });
+    checkout.open();
   } catch (error) {
     showError(error.message);
     setBusy(false);
@@ -40,7 +80,7 @@ function openWhatsApp(registration) {
   ];
   const message = [
     "FOUNDER'S DIARY 2026 registration details",
-    "Payment status: UNPAID (online payment temporarily unavailable)",
+    "Payment status: Not yet confirmed",
     ...fields.map(([label, value]) => `${label}: ${value}`)
   ].join("\n");
   const url = `https://wa.me/${whatsappRecipient}?text=${encodeURIComponent(message)}`;
@@ -64,9 +104,9 @@ async function postJson(url, payload) {
   return result;
 }
 
-function setBusy(isBusy) {
-  submitButton.disabled = isBusy;
-  submitButton.textContent = isBusy ? "Submitting registration…" : "Submit Registration";
+function setBusy(isBusy, label = "Proceed to Payment – ₹250") {
+  payButton.disabled = isBusy;
+  payButton.textContent = isBusy ? label : "Proceed to Payment – ₹250";
 }
 
 function showError(message) {
