@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#07101f">
+    <meta name="description" content="Register for FU-GLIDE's FOUNDER'S DIARY 2026.">
+    <title>FOUNDER'S DIARY 2026 | Registration</title>
+    <link rel="stylesheet" href="/assets/registration.css?v=unpaid-registration">
+    <script src="/assets/app.js?v=unpaid-registration" defer></script>
+  </head>
+  <body>
+    <main class="registration-shell">
+      <header class="form-header">
+        <p class="brand-mark">FU-GLIDE</p>
+        <h1>FOUNDER'S DIARY <span>2026</span></h1>
+        <p class="form-header__subtitle">Registration Form</p>
+        <p class="contact-link">Contact: <a href="mailto:fuglide@gmail.com">fuglide@gmail.com</a></p>
+      </header>
+
+      <section class="registration-card" id="registration-panel" aria-labelledby="form-title">
+        <h2 class="visually-hidden" id="form-title">Registration details</h2>
+        <form id="registration-form">
+          <fieldset>
+            <legend>Personal Details</legend>
+            <div class="form-grid">
+              <label class="field field--wide">
+                <span>Full Name <b aria-hidden="true">*</b></span>
+                <input name="fullName" type="text" autocomplete="name" maxlength="120" required>
+              </label>
+              <label class="field">
+                <span>Email Address <b aria-hidden="true">*</b></span>
+                <input name="email" type="email" autocomplete="email" maxlength="254" required>
+              </label>
+              <label class="field">
+                <span>Mobile Number <b aria-hidden="true">*</b></span>
+                <input name="mobile" type="tel" autocomplete="tel" inputmode="tel" maxlength="20" required>
+              </label>
+              <label class="field">
+                <span>Gender</span>
+                <select name="gender">
+                  <option value="">Select gender</option>
+                  <option>Female</option>
+                  <option>Male</option>
+                  <option>Non-binary</option>
+                  <option>Prefer not to say</option>
+                  <option>Other</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>City <b aria-hidden="true">*</b></span>
+                <input name="city" type="text" autocomplete="address-level2" maxlength="100" required>
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Professional Details</legend>
+            <div class="form-grid">
+              <label class="field field--wide">
+                <span>College / Organization Name <b aria-hidden="true">*</b></span>
+                <input name="organization" type="text" autocomplete="organization" maxlength="160" required>
+              </label>
+              <label class="field field--wide">
+                <span>Designation / Course <b aria-hidden="true">*</b></span>
+                <input name="designation" type="text" maxlength="120" required>
+              </label>
+              <label class="field field--wide">
+                <span>Participant Category <b aria-hidden="true">*</b></span>
+                <select name="participantCategory" required>
+                  <option value="">Select a category</option>
+                  <option>College / University Student</option>
+                  <option>Young Entrepreneur / Startup</option>
+                  <option>Industry Leader / Business Owner</option>
+                  <option>Educator / Innovation Mentor</option>
+                  <option>Investor / Ecosystem Partner</option>
+                </select>
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Participation Type</legend>
+            <label class="field">
+              <span>Select Participation Type <b aria-hidden="true">*</b></span>
+              <select name="participationType" required>
+                <option value="">Select participation type</option>
+                <option>Event Attendee</option>
+                <option>Sponsor</option>
+                <option>Business Stall</option>
+                <option>Brand Publishing</option>
+              </select>
+            </label>
+          </fieldset>
+
+          <label class="field message-field">
+            <span>Additional Message <small>(Optional)</small></span>
+            <textarea name="message" rows="4" maxlength="1000"></textarea>
+          </label>
+
+          <section class="payment-summary" aria-labelledby="payment-title">
+            <h2 id="payment-title">Payment Summary</h2>
+            <div class="payment-row">
+              <span>Registration Fee</span>
+              <span>₹250</span>
+            </div>
+            <div class="payment-row payment-row--total">
+              <span>Total Amount</span>
+              <strong>₹250</strong>
+            </div>
+            <p class="payment-unavailable">Online payment is temporarily unavailable.</p>
+          </section>
+
+          <p class="form-error" id="form-error" role="alert" tabindex="-1" hidden></p>
+          <p class="whatsapp-note">WhatsApp will open with your details ready to review and send. This registration will be recorded as unpaid.</p>
+          <button class="submit-button" id="submit-button" type="submit">Submit Registration</button>
+        </form>
+      </section>
+
+      <section class="registration-card confirmation-card" id="confirmation" aria-live="polite" tabindex="-1" hidden>
+        <h2>REGISTRATION SUCCESSFUL!</h2>
+        <dl class="confirmation-details">
+          <div><dt>Registration ID</dt><dd id="confirmation-id"></dd></div>
+          <div><dt>Participant Name</dt><dd id="confirmation-name"></dd></div>
+          <div><dt>Registration Fee</dt><dd>₹250</dd></div>
+          <div><dt>Payment Status</dt><dd id="confirmation-status">UNPAID</dd></div>
+        </dl>
+        <button class="print-button" id="print-button" type="button">Print / Save Confirmation</button>
+      </section>
+    </main>
+  </body>
+</html>
