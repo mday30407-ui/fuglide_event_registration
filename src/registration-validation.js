@@ -1,3 +1,4 @@
+
 const PARTICIPANT_CATEGORIES = [
   "College / University Student",
   "Young Entrepreneur / Startup",
@@ -13,7 +14,14 @@ const PARTICIPATION_TYPES = [
   "Brand Publishing"
 ];
 
-const GENDERS = ["Female", "Male", "Non-binary", "Prefer not to say", "Other"];
+const GENDERS = [
+  "Female",
+  "Male",
+  "Non-binary",
+  "Prefer not to say",
+  "Other"
+];
+
 const REGISTRATION_FEE = 250;
 
 class ValidationError extends Error {
@@ -26,12 +34,22 @@ class ValidationError extends Error {
 
 function boundedString(value, field, maxLength, required = true) {
   if (typeof value !== "string") {
-    if (!required && (value === undefined || value === null)) return "";
+    if (!required && (value === undefined || value === null)) {
+      return "";
+    }
     throw new ValidationError(`${field} is invalid.`);
   }
+
   const cleaned = value.trim();
-  if (required && !cleaned) throw new ValidationError(`${field} is required.`);
-  if (cleaned.length > maxLength) throw new ValidationError(`${field} is too long.`);
+
+  if (required && !cleaned) {
+    throw new ValidationError(`${field} is required.`);
+  }
+
+  if (cleaned.length > maxLength) {
+    throw new ValidationError(`${field} is too long.`);
+  }
+
   return cleaned;
 }
 
@@ -54,14 +72,23 @@ function validateRegistration(input) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     throw new ValidationError("Enter a valid email address.");
   }
+
   const digits = mobile.replace(/\D/g, "");
-  if (!/^\+?[0-9\s().-]+$/.test(mobile) || digits.length < 10 || digits.length > 15) {
+
+  if (!/^\+?[0-9\s().-]+$/.test(mobile) ||
+      digits.length < 10 ||
+      digits.length > 15) {
     throw new ValidationError("Enter a valid mobile number.");
   }
-  if (gender && !GENDERS.includes(gender)) throw new ValidationError("Select a valid gender.");
+
+  if (gender && !GENDERS.includes(gender)) {
+    throw new ValidationError("Select a valid gender.");
+  }
+
   if (!PARTICIPANT_CATEGORIES.includes(participantCategory)) {
     throw new ValidationError("Select a valid participant category.");
   }
+
   if (!PARTICIPATION_TYPES.includes(participationType)) {
     throw new ValidationError("Select a valid participation type.");
   }

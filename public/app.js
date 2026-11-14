@@ -3,7 +3,6 @@ const payButton = document.querySelector("#pay-button");
 const formError = document.querySelector("#form-error");
 const registrationPanel = document.querySelector("#registration-panel");
 const confirmation = document.querySelector("#confirmation");
-const whatsappRecipient = "9629255773";
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -11,7 +10,6 @@ form.addEventListener("submit", async (event) => {
   if (!form.reportValidity()) return;
 
   const registration = Object.fromEntries(new FormData(form).entries());
-  if (!openWhatsApp(registration)) return;
 
   if (!window.Razorpay) {
     showError("Payment checkout could not be loaded. Check your connection and try again.");
@@ -37,13 +35,19 @@ form.addEventListener("submit", async (event) => {
       theme: { color: "#e8b650" },
       handler: async (payment) => {
         setBusy(true, "Verifying payment…");
+        const paymentDetails = {
+          ...registration,
+          razorpay_order_id: payment.razorpay_order_id,
+          razorpay_payment_id: payment.razorpay_payment_id,
+          razorpay_signature: payment.razorpay_signature
+        };
         try {
-          const result = await postJson("/api/verify", {
-            ...registration,
-            razorpay_order_id: payment.razorpay_order_id,
-            razorpay_payment_id: payment.razorpay_payment_id,
-            razorpay_signature: payment.razorpay_signature
-          });
+          let result;
+          try {
+            result = await postJson("/api/verify", paymentDetails);
+          } catch {
+            result = await postJson("/api/recover", paymentDetails);
+          }
           showConfirmation(result.registration);
         } catch (error) {
           showError(error.message);
@@ -64,34 +68,6 @@ form.addEventListener("submit", async (event) => {
 });
 
 document.querySelector("#print-button").addEventListener("click", () => window.print());
-
-function openWhatsApp(registration) {
-  const fields = [
-    ["Full Name", registration.fullName],
-    ["Email Address", registration.email],
-    ["Mobile Number", registration.mobile],
-    ["Gender", registration.gender || "Not provided"],
-    ["City", registration.city],
-    ["College / Organization Name", registration.organization],
-    ["Designation / Course", registration.designation],
-    ["Participant Category", registration.participantCategory],
-    ["Participation Type", registration.participationType],
-    ["Additional Message", registration.message || "Not provided"]
-  ];
-  const message = [
-    "FOUNDER'S DIARY 2026 registration details",
-    "Payment status: Not yet confirmed",
-    ...fields.map(([label, value]) => `${label}: ${value}`)
-  ].join("\n");
-  const url = `https://wa.me/${whatsappRecipient}?text=${encodeURIComponent(message)}`;
-  const whatsappWindow = window.open(url, "_blank");
-  if (!whatsappWindow) {
-    showError("Your browser blocked WhatsApp. Allow pop-ups, then try again.");
-    return false;
-  }
-  whatsappWindow.opener = null;
-  return true;
-}
 
 async function postJson(url, payload) {
   let response;

@@ -1,5 +1,26 @@
+# Environment secrets
 .env
 .env.*
 !.env.example
+
+# Firebase credentials
+*service-account*.json
+*serviceAccount*.json
+serviceAccountKey.json
+*firebase-adminsdk*.json
+*firebase*private*
+*.pem
+*.key
+*.p8
+*.p12
+*.pfx
+*.keystore
+
+# Local deployment state
+.vercel/
+
+# Dependencies
 node_modules/
-*-service-account.json
+
+# Logs
+*.log

@@ -8,9 +8,38 @@ const { createDatabase } = require("./src/db");
 const { createRegistrationStore } = require("./src/registration-store");
 
 function createApp(options = {}) {
-  const database = options.database || (options.store ? null : createDatabase());
-  const store = options.store || createRegistrationStore(database);
   const app = express();
+  let registrationStore = options.store || null;
+
+  function getRegistrationStore() {
+    if (registrationStore) return registrationStore;
+
+    try {
+      const database = options.database || createDatabase();
+      registrationStore = createRegistrationStore(database);
+      return registrationStore;
+    } catch (error) {
+      console.error("Unable to initialize database-backed API:", {
+        name: error instanceof Error ? error.name : "Error",
+        message: error instanceof Error ? error.message : "Unknown initialization error."
+      });
+      const unavailableError = new Error("Database-backed API initialization failed.");
+      unavailableError.statusCode = 503;
+      throw unavailableError;
+    }
+  }
+
+  const lazyStore = new Proxy({}, {
+    get(_target, property) {
+      const store = getRegistrationStore();
+      const value = store[property];
+      return typeof value === "function" ? value.bind(store) : value;
+    }
+  });
+  const registrationRouter = createRegistrationRouter({
+    store: lazyStore,
+    paymentsEnabled: options.paymentsEnabled !== false
+  });
 
   app.disable("x-powered-by");
   app.set("trust proxy", options.trustProxy !== undefined
@@ -33,16 +62,20 @@ function createApp(options = {}) {
     },
     crossOriginEmbedderPolicy: false
   }));
+  app.use("/api/webhooks/razorpay", express.raw({
+    type: "application/json",
+    limit: "16kb"
+  }));
   app.use(express.json({ limit: "16kb", strict: true }));
-  app.use("/public", express.static(path.join(__dirname, "public"), {
+  const publicDirectory = path.join(__dirname, "public");
+  const staticOptions = {
     etag: true,
     maxAge: 0,
     index: false
-  }));
-  app.use("/api", createRegistrationRouter({
-    store,
-    paymentsEnabled: options.paymentsEnabled !== false
-  }));
+  };
+  app.use(express.static(publicDirectory, staticOptions));
+  app.use("/public", express.static(publicDirectory, staticOptions));
+  app.use("/api", registrationRouter);
   app.get("/", (_request, response) => response.sendFile(path.join(__dirname, "index.html")));
   app.use((error, _request, response, _next) => {
     if (error.type === "entity.too.large" || error.type === "entity.parse.failed") {

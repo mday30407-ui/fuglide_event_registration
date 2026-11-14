@@ -9,13 +9,16 @@ function createRegistrationStore(database) {
   const emailLockId = (email) => createHmac("sha256", secret)
     .update(email.trim().toLowerCase())
     .digest("hex");
+  const registrationDigest = (registration) => createHmac("sha256", secret)
+    .update(JSON.stringify(Object.keys(registration).sort()
+      .map((key) => [key, registration[key]])))
+    .digest("hex");
 
   return {
     async createOrder(registration, orderFactory) {
       const lockRef = database.collection("payment_attempts").doc(emailLockId(registration.email));
-      const requestDigest = createHmac("sha256", secret)
-        .update(JSON.stringify(registration))
-        .digest("hex");
+      const orders = database.collection("payment_orders");
+      const requestDigest = registrationDigest(registration);
       const generation = randomUUID();
       const now = Date.now();
 
@@ -38,7 +41,13 @@ function createRegistrationStore(database) {
           error.statusCode = 409;
           throw error;
         }
-        transaction.set(lockRef, { status: "creating", requestDigest, generation, updatedAt: now });
+        transaction.set(lockRef, {
+          status: "creating",
+          requestDigest,
+          generation,
+          registration,
+          updatedAt: now
+        });
         return { create: true };
       });
 
@@ -58,8 +67,13 @@ function createRegistrationStore(database) {
             status: "open",
             requestDigest,
             generation,
+            registration,
             orderId: order.id,
             updatedAt: Date.now()
+          });
+          transaction.set(orders.doc(order.id), {
+            lockId: lockRef.id,
+            createdAt: Date.now()
           });
         });
         return { orderId: order.id };
@@ -77,9 +91,7 @@ function createRegistrationStore(database) {
 
     async completeRegistration(registration, orderId, paymentId) {
       const lockRef = database.collection("payment_attempts").doc(emailLockId(registration.email));
-      const requestDigest = createHmac("sha256", secret)
-        .update(JSON.stringify(registration))
-        .digest("hex");
+      const requestDigest = registrationDigest(registration);
       const registrationId = `FD26-${randomUUID().toUpperCase()}`;
       const registrationRef = database.collection("event_registrations").doc(registrationId);
 
@@ -123,8 +135,10 @@ function createRegistrationStore(database) {
           registrationDate,
           paidAt: registrationDate
         });
+        const paidAttempt = { ...attempt };
+        delete paidAttempt.registration;
         transaction.set(lockRef, {
-          ...attempt,
+          ...paidAttempt,
           status: "paid",
           registrationId,
           paymentId,
@@ -136,6 +150,129 @@ function createRegistrationStore(database) {
           amountPaid: REGISTRATION_FEE,
           paymentStatus: "PAID"
         };
+      });
+    },
+
+    async hasWebhookEvent(eventId) {
+      const eventSnapshot = await database.collection("webhook_events").doc(eventId).get();
+      return eventSnapshot.exists;
+    },
+
+    async completeRegistrationForOrder(orderId, paymentId, eventId) {
+      const eventRef = database.collection("webhook_events").doc(eventId);
+      const orderRef = database.collection("payment_orders").doc(orderId);
+      return database.runTransaction(async (transaction) => {
+        const eventSnapshot = await transaction.get(eventRef);
+        if (eventSnapshot.exists) return { duplicate: true };
+
+        const orderSnapshot = await transaction.get(orderRef);
+        if (!orderSnapshot.exists) {
+          const error = new Error("The payment order could not be found.");
+          error.statusCode = 400;
+          throw error;
+        }
+
+        const lockRef = database.collection("payment_attempts").doc(orderSnapshot.data().lockId);
+        const lockSnapshot = await transaction.get(lockRef);
+        if (!lockSnapshot.exists) {
+          throw new Error("The registration details for this payment could not be found.");
+        }
+        const attempt = lockSnapshot.data();
+
+        if (attempt.status === "paid") {
+          if (attempt.orderId !== orderId || attempt.paymentId !== paymentId) {
+            const error = new Error("This registration has already been paid.");
+            error.statusCode = 409;
+            throw error;
+          }
+          const registrationRef = database.collection("event_registrations")
+            .doc(attempt.registrationId);
+          const registrationSnapshot = await transaction.get(registrationRef);
+          if (!registrationSnapshot.exists) throw new Error("Verified registration record is missing.");
+          transaction.set(eventRef, { processedAt: Date.now() });
+          return {
+            duplicate: false,
+            registration: {
+              registrationId: attempt.registrationId,
+              fullName: registrationSnapshot.data().fullName,
+              amountPaid: REGISTRATION_FEE,
+              paymentStatus: "PAID"
+            }
+          };
+        }
+
+        if (!attempt.registration || attempt.orderId !== orderId ||
+            attempt.requestDigest !== registrationDigest(attempt.registration)) {
+          const error = new Error("Payment details do not match this registration.");
+          error.statusCode = 400;
+          throw error;
+        }
+
+        const registrationId = `FD26-${randomUUID().toUpperCase()}`;
+        const registrationRef = database.collection("event_registrations").doc(registrationId);
+        const registrationDate = FieldValue.serverTimestamp();
+        transaction.create(registrationRef, {
+          registrationId,
+          ...attempt.registration,
+          paymentStatus: "PAID",
+          razorpayOrderId: orderId,
+          razorpayPaymentId: paymentId,
+          registrationDate,
+          paidAt: registrationDate
+        });
+        const paidAttempt = { ...attempt };
+        delete paidAttempt.registration;
+        transaction.set(lockRef, {
+          ...paidAttempt,
+          status: "paid",
+          registrationId,
+          paymentId,
+          updatedAt: Date.now()
+        });
+        transaction.set(eventRef, { processedAt: Date.now() });
+        return {
+          duplicate: false,
+          registration: {
+            registrationId,
+            fullName: attempt.registration.fullName,
+            amountPaid: REGISTRATION_FEE,
+            paymentStatus: "PAID"
+          }
+        };
+      });
+    },
+
+    async recordFailedPayment(orderId, paymentId, eventId) {
+      const orderRef = database.collection("payment_orders").doc(orderId);
+      const eventRef = database.collection("webhook_events").doc(eventId);
+      return database.runTransaction(async (transaction) => {
+        const eventSnapshot = await transaction.get(eventRef);
+        if (eventSnapshot.exists) return false;
+
+        const orderSnapshot = await transaction.get(orderRef);
+        if (!orderSnapshot.exists) {
+          const error = new Error("The payment order could not be found.");
+          error.statusCode = 400;
+          throw error;
+        }
+        const lockRef = database.collection("payment_attempts").doc(orderSnapshot.data().lockId);
+        const lockSnapshot = await transaction.get(lockRef);
+        if (!lockSnapshot.exists) {
+          const error = new Error("The payment attempt could not be found.");
+          error.statusCode = 400;
+          throw error;
+        }
+
+        const attempt = lockSnapshot.data();
+        if (attempt.status !== "paid") {
+          transaction.set(lockRef, {
+            ...attempt,
+            lastFailurePaymentId: paymentId,
+            lastFailureAt: Date.now()
+          });
+        }
+        transaction.set(eventRef, { processedAt: Date.now() });
+        return true;
       });
     },
 

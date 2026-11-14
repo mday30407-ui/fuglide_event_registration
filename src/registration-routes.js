@@ -1,4 +1,4 @@
-const { createHmac, randomUUID, timingSafeEqual } = require("node:crypto");
+const { createHash, createHmac, randomUUID, timingSafeEqual } = require("node:crypto");
 const express = require("express");
 const rateLimit = require("express-rate-limit");
 const {
@@ -11,6 +11,7 @@ const PAISA_AMOUNT = REGISTRATION_FEE * 100;
 
 function createRegistrationRouter({ store, paymentsEnabled = true }) {
   const router = express.Router();
+  router.post("/webhooks/razorpay", handleRazorpayWebhook);
   router.use(rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 20,
@@ -25,9 +26,7 @@ function createRegistrationRouter({ store, paymentsEnabled = true }) {
     }
     try {
       const registration = validateRegistration(request.body);
-      if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-        throw new Error("Razorpay credentials are not configured.");
-      }
+      assertRazorpayConfiguration();
       const existing = await store.findRegistrationForEmail(registration.email);
       if (existing) return response.json({ completed: true, registration: existing });
 
@@ -46,6 +45,9 @@ function createRegistrationRouter({ store, paymentsEnabled = true }) {
         mobile: registration.mobile
       });
     } catch (error) {
+      if (error.statusCode === 503) {
+        return response.status(503).json({ error: "Online payment is currently unavailable." });
+      }
       if (error instanceof ValidationError || error.statusCode === 409) {
         return response.status(error.statusCode).json({ error: error.message });
       }
@@ -55,11 +57,20 @@ function createRegistrationRouter({ store, paymentsEnabled = true }) {
   });
 
   router.post("/verify", async (request, response) => {
+    return verifyPayment(request, response);
+  });
+
+  router.post("/recover", async (request, response) => {
+    return verifyPayment(request, response);
+  });
+
+  async function verifyPayment(request, response) {
     if (!paymentsEnabled) {
       return response.status(410).json({ error: "Online payment is currently unavailable." });
     }
     try {
       const registration = validateRegistration(request.body);
+      assertRazorpayConfiguration();
       const {
         razorpay_order_id: orderId,
         razorpay_payment_id: paymentId,
@@ -75,13 +86,16 @@ function createRegistrationRouter({ store, paymentsEnabled = true }) {
       const result = await store.completeRegistration(registration, orderId, paymentId);
       return response.json({ registration: result });
     } catch (error) {
+      if (error.statusCode === 503) {
+        return response.status(503).json({ error: "Payment verification is currently unavailable." });
+      }
       if (error instanceof ValidationError || error.statusCode === 400 || error.statusCode === 409) {
         return response.status(error.statusCode).json({ error: error.message });
       }
       console.error("Unable to verify payment:", error);
       return response.status(500).json({ error: "Payment verification could not be completed. Please retry." });
     }
-  });
+  }
 
   async function createRazorpayOrder() {
     const result = await razorpayRequest("POST", "/v1/orders", {
@@ -105,6 +119,102 @@ function createRegistrationRouter({ store, paymentsEnabled = true }) {
     }
   }
 
+  async function handleRazorpayWebhook(request, response) {
+    const rawBody = request.body;
+    const signature = request.get("x-razorpay-signature");
+    if (!process.env.RAZORPAY_WEBHOOK_SECRET) {
+      return response.status(503).json({ error: "Webhook verification is not configured." });
+    }
+    if (!Buffer.isBuffer(rawBody) || !verifyWebhookSignature(rawBody, signature)) {
+      return response.status(400).json({ error: "Webhook signature verification failed." });
+    }
+
+    let event;
+    try {
+      event = JSON.parse(rawBody.toString("utf8"));
+    } catch {
+      return response.status(400).json({ error: "Webhook payload is invalid." });
+    }
+
+    const payment = event && event.payload && event.payload.payment &&
+      event.payload.payment.entity;
+    if (!payment || typeof payment.id !== "string" ||
+        typeof payment.order_id !== "string") {
+      return response.status(200).json({ received: true, ignored: true });
+    }
+
+    const eventId = typeof event.id === "string" && event.id
+      ? createHash("sha256").update(event.id).digest("hex")
+      : createHash("sha256").update(rawBody).digest("hex");
+
+    try {
+      if (event.event === "payment.captured") {
+        if (payment.status !== "captured" || payment.amount !== PAISA_AMOUNT ||
+            payment.currency !== "INR") {
+          return response.status(400).json({ error: "Captured payment details are invalid." });
+        }
+        if (await store.hasWebhookEvent(eventId)) {
+          return response.json({ received: true, duplicate: true });
+        }
+        await verifyCapturedPayment(payment.order_id, payment.id);
+        const result = await store.completeRegistrationForOrder(
+          payment.order_id,
+          payment.id,
+          eventId
+        );
+        return response.json({ received: true, ...result });
+      }
+
+      if (event.event === "payment.failed") {
+        if (await store.hasWebhookEvent(eventId)) {
+          return response.json({ received: true, duplicate: true });
+        }
+        if (payment.status !== "failed") {
+          return response.status(400).json({ error: "Failed payment details are invalid." });
+        }
+        const duplicate = !(await store.recordFailedPayment(
+          payment.order_id,
+          payment.id,
+          eventId
+        ));
+        return response.json({ received: true, duplicate });
+      }
+
+      return response.json({ received: true, ignored: true });
+    } catch (error) {
+      if (error.statusCode === 503) {
+        return response.status(503).json({ error: "Webhook verification is currently unavailable." });
+      }
+      if (error.statusCode === 400 || error.statusCode === 409) {
+        return response.status(error.statusCode).json({ error: error.message });
+      }
+      console.error("Unable to process Razorpay webhook:", error);
+      return response.status(500).json({ error: "Webhook processing could not be completed." });
+    }
+  }
+
+  function verifyWebhookSignature(rawBody, signature) {
+    const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+    if (!secret || typeof signature !== "string" || !/^[a-f0-9]{64}$/i.test(signature)) {
+      return false;
+    }
+    const expected = createHmac("sha256", secret).update(rawBody).digest();
+    const supplied = Buffer.from(signature, "hex");
+    return supplied.length === expected.length && timingSafeEqual(supplied, expected);
+  }
+
+  function assertRazorpayConfiguration() {
+    const mode = process.env.RAZORPAY_MODE || "test";
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    const expectedPrefix = mode === "test" ? "rzp_test_" : mode === "live" ? "rzp_live_" : null;
+    if (!expectedPrefix || !keyId || !keyId.startsWith(expectedPrefix) || !keySecret) {
+      const error = new Error("Razorpay credentials must match the explicitly configured payment mode.");
+      error.statusCode = 503;
+      throw error;
+    }
+  }
+
   async function verifyCapturedPayment(orderId, paymentId) {
     const payment = await razorpayRequest("GET", `/v1/payments/${encodeURIComponent(paymentId)}`);
     if (!payment || payment.order_id !== orderId || payment.amount !== PAISA_AMOUNT ||
@@ -116,6 +226,7 @@ function createRegistrationRouter({ store, paymentsEnabled = true }) {
   }
 
   async function razorpayRequest(method, endpoint, body) {
+    assertRazorpayConfiguration();
     const credentials = Buffer.from(
       `${process.env.RAZORPAY_KEY_ID}:${process.env.RAZORPAY_KEY_SECRET}`
     ).toString("base64");
