@@ -92,6 +92,11 @@ async function captureInitializationErrors(callback) {
   }
 }
 
+function diagnosticEvent(call) {
+  assert.equal(call[0], "Registration API diagnostic:");
+  return call[1];
+}
+
 async function withRazorpayApi(callback) {
   const originalFetch = global.fetch;
   global.fetch = (url, options) => {
@@ -219,8 +224,13 @@ test("returns a safe API error and logs missing Firebase configuration", async (
     }, createApp()));
 
     assert.equal(errors.length, 1);
-    assert.equal(errors[0][0], "Unable to initialize database-backed API:");
-    assert.match(errors[0][1].message, /FIREBASE_PROJECT_ID must be configured/);
+    const event = diagnosticEvent(errors[0]);
+    assert.match(event.requestId, /^[0-9a-f-]{36}$/i);
+    assert.equal(event.stage, "firebase_store_initialization");
+    assert.equal(event.outcome, "failed");
+    assert.equal(event.errorName, "Error");
+    assert.equal(event.errorMessage, "Firebase registration store initialization failed.");
+    assert.doesNotMatch(JSON.stringify(errors), /FIREBASE_PROJECT_ID/);
   });
 });
 
@@ -239,7 +249,11 @@ test("returns a safe API error when the registration lock secret is missing", as
     }, createApp()));
 
     assert.equal(errors.length, 1);
-    assert.match(errors[0][1].message, /REGISTRATION_LOCK_SECRET must be configured/);
+    const event = diagnosticEvent(errors[0]);
+    assert.equal(event.stage, "firebase_store_initialization");
+    assert.equal(event.outcome, "failed");
+    assert.equal(event.errorMessage, "Firebase registration store initialization failed.");
+    assert.doesNotMatch(JSON.stringify(errors), /REGISTRATION_LOCK_SECRET/);
   });
 });
 
@@ -261,7 +275,11 @@ test("returns a safe API error when Firebase service-account JSON is malformed",
     }, createApp()));
 
     assert.equal(errors.length, 1);
-    assert.match(errors[0][1].message, /FIREBASE_SERVICE_ACCOUNT must contain valid JSON/);
+    const event = diagnosticEvent(errors[0]);
+    assert.equal(event.stage, "firebase_store_initialization");
+    assert.equal(event.outcome, "failed");
+    assert.equal(event.errorMessage, "Firebase registration store initialization failed.");
+    assert.doesNotMatch(JSON.stringify(errors), /FIREBASE_SERVICE_ACCOUNT|private_key/);
   });
 });
 
@@ -344,9 +362,15 @@ test("fails all API routes safely when Firebase service-account credentials are 
     ));
 
     assert.equal(errors.length, 4);
-    for (const error of errors) {
-      assert.match(error[1].message, /Failed to parse private key/);
-      assert.doesNotMatch(error[1].message, /not-a-private-key/);
+    for (const call of errors) {
+      const event = diagnosticEvent(call);
+      assert.equal(event.stage, "firebase_store_initialization");
+      assert.equal(event.outcome, "failed");
+      assert.equal(event.errorMessage, "Firebase registration store initialization failed.");
     }
+    assert.doesNotMatch(
+      JSON.stringify(errors),
+      /service@test-vercel-project|not-a-private-key|test_secret|test_webhook_secret/
+    );
   });
 });

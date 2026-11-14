@@ -6,6 +6,10 @@ const {
   ValidationError,
   validateRegistration
 } = require("./registration-validation");
+const {
+  hasLoggedDiagnostic,
+  logRequestDiagnostic
+} = require("./request-diagnostics");
 
 const PAISA_AMOUNT = REGISTRATION_FEE * 100;
 
@@ -21,18 +25,49 @@ function createRegistrationRouter({ store, paymentsEnabled = true }) {
   }));
 
   router.post("/orders", async (request, response) => {
+    const requestId = randomUUID();
+    const requestContext = {
+      requestId,
+      firebaseStoreInitializationLogged: false
+    };
+    let stage = "registration_validation";
+
     if (!paymentsEnabled) {
       return response.status(410).json({ error: "Online payment is currently unavailable." });
     }
+
     try {
       const registration = validateRegistration(request.body);
-      assertRazorpayConfiguration();
-      const existing = await store.findRegistrationForEmail(registration.email);
+      logRequestDiagnostic(requestId, stage, "completed");
+
+      stage = "razorpay_configuration";
+      const configuration = assertRazorpayConfiguration();
+      logRequestDiagnostic(requestId, stage, "completed", null, configuration);
+
+      stage = "firebase_store_initialization";
+      const existing = await findRegistrationForEmail(registration.email, requestContext);
       if (existing) return response.json({ completed: true, registration: existing });
 
-      const result = await store.createOrder(registration, createRazorpayOrder);
+      stage = "firestore_order_processing";
+      const result = await store.createOrder(registration, async () => {
+        stage = "razorpay_order_creation";
+        logRequestDiagnostic(requestId, stage, "started");
+        try {
+          const order = await createRazorpayOrder();
+          logRequestDiagnostic(requestId, stage, "completed");
+          return order;
+        } catch (error) {
+          logRequestDiagnostic(requestId, stage, "failed", error);
+          throw error;
+        } finally {
+          stage = "firestore_order_processing";
+        }
+      }, requestContext);
+      logRequestDiagnostic(requestId, "firestore_order_processing", "completed");
+
       if (result.completed) {
-        const saved = await store.findRegistrationForEmail(registration.email);
+        stage = "firebase_store_initialization";
+        const saved = await findRegistrationForEmail(registration.email, requestContext);
         return response.json({ completed: true, registration: saved });
       }
       return response.json({
@@ -45,13 +80,21 @@ function createRegistrationRouter({ store, paymentsEnabled = true }) {
         mobile: registration.mobile
       });
     } catch (error) {
+      if (!hasLoggedDiagnostic(error)) {
+        logRequestDiagnostic(
+          requestId,
+          stage,
+          "failed",
+          error,
+          error && error.diagnosticDetails
+        );
+      }
       if (error.statusCode === 503) {
         return response.status(503).json({ error: "Online payment is currently unavailable." });
       }
       if (error instanceof ValidationError || error.statusCode === 409) {
         return response.status(error.statusCode).json({ error: error.message });
       }
-      console.error("Unable to create payment order:", error);
       return response.status(500).json({ error: "Unable to start payment. Please try again." });
     }
   });
@@ -203,6 +246,26 @@ function createRegistrationRouter({ store, paymentsEnabled = true }) {
     return supplied.length === expected.length && timingSafeEqual(supplied, expected);
   }
 
+  async function findRegistrationForEmail(email, requestContext) {
+    const requestId = requestContext.requestId;
+    logRequestDiagnostic(requestId, "firestore_registration_lookup", "started");
+    try {
+      const registration = await store.findRegistrationForEmail(email, requestContext);
+      logRequestDiagnostic(requestId, "firestore_registration_lookup", "completed");
+      return registration;
+    } catch (error) {
+      if (!hasLoggedDiagnostic(error)) {
+        logRequestDiagnostic(
+          requestId,
+          "firestore_registration_lookup",
+          "failed",
+          error
+        );
+      }
+      throw error;
+    }
+  }
+
   function assertRazorpayConfiguration() {
     const mode = process.env.RAZORPAY_MODE || "test";
     const keyId = process.env.RAZORPAY_KEY_ID;
@@ -213,17 +276,19 @@ function createRegistrationRouter({ store, paymentsEnabled = true }) {
       expectedPrefix && keyIdPresent && keyId.startsWith(expectedPrefix)
     );
     const keySecretPresent = typeof keySecret === "string" && keySecret.length > 0;
-    if (!expectedPrefix || !keyIdPrefixMatchesMode || !keySecretPresent) {
-      console.error("Razorpay configuration rejected:", {
-        mode: expectedPrefix ? mode : "unsupported",
-        keyIdPresent,
-        keyIdPrefixMatchesMode,
-        keySecretPresent
-      });
+    const details = {
+      modeAccepted: Boolean(expectedPrefix),
+      keyIdPresent,
+      keyIdPrefixMatchesMode,
+      keySecretPresent
+    };
+    if (!details.modeAccepted || !keyIdPrefixMatchesMode || !keySecretPresent) {
       const error = new Error("Razorpay credentials must match the explicitly configured payment mode.");
       error.statusCode = 503;
+      error.diagnosticDetails = details;
       throw error;
     }
+    return details;
   }
 
   async function verifyCapturedPayment(orderId, paymentId) {
@@ -255,8 +320,6 @@ function createRegistrationRouter({ store, paymentsEnabled = true }) {
       });
       const payload = await result.json().catch(() => null);
       if (!result.ok) {
-        console.error("Razorpay API request failed:", result.status,
-          payload && payload.error && payload.error.code);
         throw new Error("Razorpay API request failed.");
       }
       return payload;

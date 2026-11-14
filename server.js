@@ -12,6 +12,8 @@ let path;
 let createRegistrationRouter;
 let createDatabase;
 let createRegistrationStore;
+let logRequestDiagnostic;
+let markDiagnosticLogged;
 
 try {
   require("dotenv").config();
@@ -21,6 +23,7 @@ try {
   ({ createRegistrationRouter } = require("./src/registration-routes"));
   ({ createDatabase } = require("./src/db"));
   ({ createRegistrationStore } = require("./src/registration-store"));
+  ({ logRequestDiagnostic, markDiagnosticLogged } = require("./src/request-diagnostics"));
 } catch (error) {
   logStartupFailure("module-import", error);
   throw error;
@@ -30,29 +33,49 @@ function createApp(options = {}) {
   const app = express();
   let registrationStore = options.store || null;
 
-  function getRegistrationStore() {
-    if (registrationStore) return registrationStore;
+  function getRegistrationStore(context) {
+    const requestId = context && context.requestId;
+    if (registrationStore) {
+      logStoreReady(context);
+      return registrationStore;
+    }
 
     try {
       const database = options.database || createDatabase();
       registrationStore = createRegistrationStore(database);
+      logStoreReady(context);
       return registrationStore;
     } catch (error) {
-      console.error("Unable to initialize database-backed API:", {
-        name: error instanceof Error ? error.name : "Error",
-        message: error instanceof Error ? error.message : "Unknown initialization error."
-      });
+      logRequestDiagnostic(requestId, "firebase_store_initialization", "failed", error);
       const unavailableError = new Error("Database-backed API initialization failed.");
       unavailableError.statusCode = 503;
+      markDiagnosticLogged(unavailableError);
       throw unavailableError;
     }
   }
 
+  function logStoreReady(context) {
+    if (!context || context.firebaseStoreInitializationLogged) return;
+    context.firebaseStoreInitializationLogged = true;
+    logRequestDiagnostic(
+      context.requestId,
+      "firebase_store_initialization",
+      "completed"
+    );
+  }
+
   const lazyStore = new Proxy({}, {
     get(_target, property) {
-      const store = getRegistrationStore();
-      const value = store[property];
-      return typeof value === "function" ? value.bind(store) : value;
+      return (...args) => {
+        const context = args[args.length - 1];
+        const requestContext = context && typeof context === "object" &&
+          typeof context.requestId === "string"
+          ? context
+          : null;
+        const store = getRegistrationStore(requestContext);
+        const value = store[property];
+        return typeof value === "function" ? value.apply(store, args) : value;
+      };
     }
   });
   const registrationRouter = createRegistrationRouter({

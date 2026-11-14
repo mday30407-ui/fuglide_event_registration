@@ -186,7 +186,7 @@ test("returns service-unavailable responses when payment secrets are missing", a
 test("logs Razorpay configuration mismatch without exposing credential values", async () => {
   const loggedErrors = [];
   const originalConsoleError = console.error;
-  console.error = (...args) => loggedErrors.push(args);
+  console.error = (label, event) => loggedErrors.push({ label, event });
   try {
     await withServer(async () => {
       throw new Error("Invalid configuration must not call Razorpay.");
@@ -207,16 +207,181 @@ test("logs Razorpay configuration mismatch without exposing credential values", 
     console.error = originalConsoleError;
   }
 
-  assert.deepEqual(loggedErrors, [[
-    "Razorpay configuration rejected:",
-    {
-      mode: "test",
-      keyIdPresent: true,
-      keyIdPrefixMatchesMode: false,
-      keySecretPresent: true
-    }
-  ]]);
+  assert.equal(loggedErrors.length, 1);
+  assert.equal(loggedErrors[0].label, "Registration API diagnostic:");
+  assert.match(loggedErrors[0].event.requestId, /^[0-9a-f-]{36}$/i);
+  assert.equal(loggedErrors[0].event.stage, "razorpay_configuration");
+  assert.equal(loggedErrors[0].event.outcome, "failed");
+  assert.equal(loggedErrors[0].event.errorName, "Error");
+  assert.equal(loggedErrors[0].event.errorMessage, "Razorpay configuration rejected.");
+  assert.deepEqual({
+    modeAccepted: loggedErrors[0].event.modeAccepted,
+    keyIdPresent: loggedErrors[0].event.keyIdPresent,
+    keyIdPrefixMatchesMode: loggedErrors[0].event.keyIdPrefixMatchesMode,
+    keySecretPresent: loggedErrors[0].event.keySecretPresent
+  }, {
+    modeAccepted: true,
+    keyIdPresent: true,
+    keyIdPrefixMatchesMode: false,
+    keySecretPresent: true
+  });
   assert.doesNotMatch(JSON.stringify(loggedErrors), /rzp_live_private_value|private_secret_value/);
+});
+
+test("logs correlated order stages without registration or credential values", async () => {
+  const diagnostics = [];
+  const originalInfo = console.info;
+  const originalError = console.error;
+  console.info = (label, event) => {
+    if (label === "Registration API diagnostic:") diagnostics.push(event);
+  };
+  console.error = (label, event) => {
+    if (label === "Registration API diagnostic:") diagnostics.push(event);
+  };
+
+  try {
+    let orderNumber = 0;
+    await withServer(async () => Response.json({ id: `order_test_${++orderNumber}` }),
+      async (address) => {
+        for (let index = 0; index < 2; index += 1) {
+          const response = await fetch(`${address}/api/orders`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(registration)
+          });
+          assert.equal(response.status, 200);
+        }
+      });
+  } finally {
+    console.info = originalInfo;
+    console.error = originalError;
+  }
+
+  const requestIds = new Set(diagnostics.map((event) => event.requestId));
+  assert.equal(requestIds.size, 2);
+  assert.ok([...requestIds].every((requestId) => /^[0-9a-f-]{36}$/i.test(requestId)));
+  for (const requestId of requestIds) {
+    const requestEvents = diagnostics.filter((event) => event.requestId === requestId);
+    for (const [stage, outcome] of [
+      ["registration_validation", "completed"],
+      ["razorpay_configuration", "completed"],
+      ["firebase_store_initialization", "completed"],
+      ["firestore_registration_lookup", "started"],
+      ["firestore_registration_lookup", "completed"],
+      ["razorpay_order_creation", "started"],
+      ["razorpay_order_creation", "completed"],
+      ["firestore_order_processing", "completed"]
+    ]) {
+      assert.ok(requestEvents.some((event) =>
+        event.stage === stage && event.outcome === outcome
+      ), `missing ${stage} ${outcome} diagnostic`);
+    }
+  }
+
+  const serialized = JSON.stringify(diagnostics);
+  assert.doesNotMatch(
+    serialized,
+    /asha@example\.com|\+91 9876543210|test_secret|webhook_test_secret|rzp_test_public/
+  );
+  assert.ok(diagnostics.every((event) =>
+    typeof event.errorMessage === "string" &&
+    Object.prototype.hasOwnProperty.call(event, "errorName")
+  ));
+});
+
+test("logs Firestore lookup failures with a request ID and no sensitive error details", async () => {
+  const diagnostics = [];
+  const originalInfo = console.info;
+  const originalError = console.error;
+  console.info = (label, event) => {
+    if (label === "Registration API diagnostic:") diagnostics.push(event);
+  };
+  console.error = (label, event) => {
+    if (label === "Registration API diagnostic:") diagnostics.push(event);
+  };
+
+  try {
+    await withServer(async () => {
+      throw new Error("Firestore must fail before contacting Razorpay.");
+    }, async (address) => {
+      const response = await fetch(`${address}/api/orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(registration)
+      });
+      assert.equal(response.status, 503);
+      assert.equal((await response.json()).error, "Online payment is currently unavailable.");
+    }, {
+      store: {
+        findRegistrationForEmail: async () => {
+          const error = new Error(
+            `${registration.email} ${registration.mobile} private_secret_value`
+          );
+          error.statusCode = 503;
+          throw error;
+        }
+      }
+    });
+  } finally {
+    console.info = originalInfo;
+    console.error = originalError;
+  }
+
+  const failure = diagnostics.find((event) =>
+    event.stage === "firestore_registration_lookup" && event.outcome === "failed"
+  );
+  assert.ok(failure);
+  assert.match(failure.requestId, /^[0-9a-f-]{36}$/i);
+  assert.equal(failure.errorName, "Error");
+  assert.equal(failure.errorMessage, "Firestore registration lookup failed.");
+  assert.doesNotMatch(
+    JSON.stringify(diagnostics),
+    /asha@example\.com|\+91 9876543210|private_secret_value/
+  );
+});
+
+test("logs Razorpay order failures with a request ID and no provider details", async () => {
+  const diagnostics = [];
+  const originalInfo = console.info;
+  const originalError = console.error;
+  console.info = (label, event) => {
+    if (label === "Registration API diagnostic:") diagnostics.push(event);
+  };
+  console.error = (label, event) => {
+    if (label === "Registration API diagnostic:") diagnostics.push(event);
+  };
+
+  try {
+    await withServer(async () => Response.json({
+      error: {
+        description: `${registration.email} ${registration.mobile} private_secret_value`,
+        code: "BAD_AUTH"
+      }
+    }, { status: 401 }), async (address) => {
+      const response = await fetch(`${address}/api/orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(registration)
+      });
+      assert.equal(response.status, 500);
+      assert.equal((await response.json()).error, "Unable to start payment. Please try again.");
+    });
+  } finally {
+    console.info = originalInfo;
+    console.error = originalError;
+  }
+
+  const failure = diagnostics.find((event) =>
+    event.stage === "razorpay_order_creation" && event.outcome === "failed"
+  );
+  assert.ok(failure);
+  assert.match(failure.requestId, /^[0-9a-f-]{36}$/i);
+  assert.equal(failure.errorName, "Error");
+  assert.equal(failure.errorMessage, "Razorpay order creation failed.");
+  assert.doesNotMatch(
+    JSON.stringify(diagnostics),
+    /asha@example\.com|\+91 9876543210|private_secret_value|BAD_AUTH/
+  );
 });
 
 test("rejects bad signatures and only records captured matching payments", async () => {
