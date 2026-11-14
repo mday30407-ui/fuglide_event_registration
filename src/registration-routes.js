@@ -208,7 +208,18 @@ function createRegistrationRouter({ store, paymentsEnabled = true }) {
     const keyId = process.env.RAZORPAY_KEY_ID;
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
     const expectedPrefix = mode === "test" ? "rzp_test_" : mode === "live" ? "rzp_live_" : null;
-    if (!expectedPrefix || !keyId || !keyId.startsWith(expectedPrefix) || !keySecret) {
+    const keyIdPresent = typeof keyId === "string" && keyId.length > 0;
+    const keyIdPrefixMatchesMode = Boolean(
+      expectedPrefix && keyIdPresent && keyId.startsWith(expectedPrefix)
+    );
+    const keySecretPresent = typeof keySecret === "string" && keySecret.length > 0;
+    if (!expectedPrefix || !keyIdPrefixMatchesMode || !keySecretPresent) {
+      console.error("Razorpay configuration rejected:", {
+        mode: expectedPrefix ? mode : "unsupported",
+        keyIdPresent,
+        keyIdPrefixMatchesMode,
+        keySecretPresent
+      });
       const error = new Error("Razorpay credentials must match the explicitly configured payment mode.");
       error.statusCode = 503;
       throw error;

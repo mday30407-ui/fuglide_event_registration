@@ -108,7 +108,7 @@ function webhookRequest(address, event, secret = "webhook_test_secret") {
   });
 }
 
-test("creates a server-priced ₹250 INR order and validates required details", async () => {
+test("creates a server-priced ₹250 INR order without requiring webhook configuration", async () => {
   let orderRequest;
   await withServer(async (_url, options) => {
     orderRequest = JSON.parse(options.body);
@@ -134,7 +134,7 @@ test("creates a server-priced ₹250 INR order and validates required details", 
     assert.equal(result.amount, 25000);
     assert.equal(result.currency, "INR");
     assert.equal(result.keyId, "rzp_test_public");
-  }, { paymentsEnabled: true });
+  }, { paymentsEnabled: true, mode: "test", webhookSecret: "" });
 });
 
 test("keeps payment endpoints disabled when explicitly configured", async () => {
@@ -181,6 +181,42 @@ test("returns service-unavailable responses when payment secrets are missing", a
     });
     assert.equal(webhook.status, 503);
   }, { keyId: "", keySecret: "", webhookSecret: "" });
+});
+
+test("logs Razorpay configuration mismatch without exposing credential values", async () => {
+  const loggedErrors = [];
+  const originalConsoleError = console.error;
+  console.error = (...args) => loggedErrors.push(args);
+  try {
+    await withServer(async () => {
+      throw new Error("Invalid configuration must not call Razorpay.");
+    }, async (address) => {
+      const response = await fetch(`${address}/api/orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(registration)
+      });
+      assert.equal(response.status, 503);
+      assert.equal((await response.json()).error, "Online payment is currently unavailable.");
+    }, {
+      mode: "test",
+      keyId: "rzp_live_private_value",
+      keySecret: "private_secret_value"
+    });
+  } finally {
+    console.error = originalConsoleError;
+  }
+
+  assert.deepEqual(loggedErrors, [[
+    "Razorpay configuration rejected:",
+    {
+      mode: "test",
+      keyIdPresent: true,
+      keyIdPrefixMatchesMode: false,
+      keySecretPresent: true
+    }
+  ]]);
+  assert.doesNotMatch(JSON.stringify(loggedErrors), /rzp_live_private_value|private_secret_value/);
 });
 
 test("rejects bad signatures and only records captured matching payments", async () => {
