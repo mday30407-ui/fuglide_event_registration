@@ -1,10 +1,25 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { createHmac } = require("node:crypto");
+const { execFileSync } = require("node:child_process");
+const Module = require("node:module");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const app = require("../index");
+const originalModuleLoad = Module._load;
+const firebaseImportsDuringStartup = [];
+Module._load = function (request, parent, isMain) {
+  if (typeof request === "string" && request.startsWith("firebase-admin/")) {
+    firebaseImportsDuringStartup.push(request);
+  }
+  return originalModuleLoad.apply(this, arguments);
+};
+let app;
+try {
+  app = require("../index");
+} finally {
+  Module._load = originalModuleLoad;
+}
 const { createApp } = require("../server");
 const firebaseEnvironmentKeys = [
   "FIREBASE_PROJECT_ID",
@@ -97,6 +112,40 @@ async function withRazorpayApi(callback) {
   }
 }
 
+test("loads the Vercel entrypoint without importing Firebase Admin", () => {
+  assert.deepEqual(firebaseImportsDuringStartup, []);
+});
+
+test("logs a sanitized diagnostic when entrypoint module loading fails", () => {
+  const projectRoot = path.join(__dirname, "..");
+  const entrypoint = path.join(projectRoot, "index.js");
+  const probe = `
+    const Module = require("node:module");
+    const originalLoad = Module._load;
+    console.error = (message, details) => {
+      process.stdout.write(JSON.stringify({ message, details }) + "\\n");
+    };
+    Module._load = function (request, parent, isMain) {
+      if (request === "express") throw new Error("simulated module import failure");
+      return originalLoad.apply(this, arguments);
+    };
+    try {
+      require(${JSON.stringify(entrypoint)});
+    } catch (error) {
+      process.stdout.write("CAUGHT:" + error.message);
+    }
+  `;
+  const output = execFileSync(process.execPath, ["-e", probe], {
+    cwd: projectRoot,
+    encoding: "utf8"
+  });
+
+  assert.match(output, /"stage":"module-import"/);
+  assert.match(output, /"message":"simulated module import failure"/);
+  assert.match(output, /CAUGHT:simulated module import failure/);
+  assert.doesNotMatch(output, /stack|private_key|secret/i);
+});
+
 test("exports an Express Vercel function and serves the frontend without Firebase", async () => {
   assert.equal(typeof app, "function");
   assert.equal(app.config.api.bodyParser, false);
@@ -123,9 +172,12 @@ test("routes Vercel API requests through Express without exposing private files"
   const projectRoot = path.join(__dirname, "..");
   const vercel = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "vercel.json"), "utf8"));
   const packageJson = JSON.parse(fs.readFileSync(path.join(projectRoot, "package.json"), "utf8"));
-  assert.equal(packageJson.main, "index.js");
-  assert.equal(vercel.functions["index.js"].maxDuration, 30);
-  assert.equal(vercel.functions["index.js"].includeFiles, "index.html");
+  assert.equal(packageJson.main, "server.js");
+  assert.equal(typeof require("../server"), "function");
+  assert.equal(require("../server"), app);
+  assert.equal(app.config.api.bodyParser, false);
+  assert.equal(vercel.functions["server.js"].maxDuration, 30);
+  assert.equal(vercel.functions["server.js"].includeFiles, "index.html");
   assert.equal(vercel.rewrites, undefined);
   const apiDirectory = path.join(projectRoot, "api");
   assert.deepEqual(fs.existsSync(apiDirectory)

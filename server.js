@@ -1,11 +1,30 @@
-require("dotenv").config();
+function logStartupFailure(stage, error) {
+  console.error("Vercel Express startup failed:", {
+    stage,
+    name: error instanceof Error ? error.name : "Error",
+    message: error instanceof Error ? error.message : "Unknown startup error."
+  });
+}
 
-const express = require("express");
-const helmet = require("helmet");
-const path = require("node:path");
-const { createRegistrationRouter } = require("./src/registration-routes");
-const { createDatabase } = require("./src/db");
-const { createRegistrationStore } = require("./src/registration-store");
+let express;
+let helmet;
+let path;
+let createRegistrationRouter;
+let createDatabase;
+let createRegistrationStore;
+
+try {
+  require("dotenv").config();
+  express = require("express");
+  helmet = require("helmet");
+  path = require("node:path");
+  ({ createRegistrationRouter } = require("./src/registration-routes"));
+  ({ createDatabase } = require("./src/db"));
+  ({ createRegistrationStore } = require("./src/registration-store"));
+} catch (error) {
+  logStartupFailure("module-import", error);
+  throw error;
+}
 
 function createApp(options = {}) {
   const app = express();
@@ -88,11 +107,26 @@ function createApp(options = {}) {
   return app;
 }
 
+let app;
+try {
+  app = createApp();
+} catch (error) {
+  logStartupFailure("app-creation", error);
+  throw error;
+}
+
+app.config = {
+  api: {
+    bodyParser: false
+  }
+};
+
 if (require.main === module) {
   const port = Number(process.env.PORT || 3000);
-  createApp().listen(port, () => {
+  app.listen(port, () => {
     console.log(`FU-GLIDE registration server listening on port ${port}`);
   });
 }
 
-module.exports = { createApp };
+module.exports = app;
+module.exports.createApp = createApp;

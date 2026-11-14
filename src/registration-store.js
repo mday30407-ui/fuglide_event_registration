@@ -1,8 +1,8 @@
 const { createHmac, randomUUID } = require("node:crypto");
-const { FieldValue } = require("firebase-admin/firestore");
 const { REGISTRATION_FEE } = require("./registration-validation");
 
 function createRegistrationStore(database) {
+  const { FieldValue } = require("firebase-admin/firestore");
   const secret = process.env.REGISTRATION_LOCK_SECRET;
   if (!secret) throw new Error("REGISTRATION_LOCK_SECRET must be configured.");
 

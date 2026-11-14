@@ -25,11 +25,13 @@ verification. Razorpay Checkout is used for the fixed ₹250 INR fee.
 3. Keep the project root at the repository root and use the Express framework
    preset. Leave the Build Command and Output Directory empty; use the default
    install command (`npm install`). Vercel detects the Express app exported
-   from `index.js` and serves `public/**` from the site root as CDN assets.
-   `vercel.json` sets a 30-second function maximum duration.
-   `index.js` exports the app without starting a listener; it handles `/api/*`
-   routes and the Razorpay webhook in the same function, so no rewrite is
-   needed.
+   from `server.js` and serves `public/**` from the site root as CDN assets.
+   `server.js` exports the Express app as the default function and also starts
+   it for local `npm start`; `index.js` re-exports the same app.
+   `vercel.json` configures the `server.js` function for a 30-second maximum
+   duration and includes `index.html`. The same function handles `/api/*`
+   routes and the Razorpay webhook, so no rewrite or separate `api/index.js`
+   is needed.
 4. Add the environment variables below in **Project Settings → Environment
    Variables**. Configure Test Mode values for Preview and Production until
    the complete test flow has been manually verified.
