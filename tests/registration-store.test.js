@@ -72,7 +72,11 @@ test("requires a stable registration lock secret", () => {
   const previousSecret = process.env.REGISTRATION_LOCK_SECRET;
   delete process.env.REGISTRATION_LOCK_SECRET;
   try {
-    assert.throws(() => createRegistrationStore({}), /REGISTRATION_LOCK_SECRET must be configured/);
+    assert.throws(() => createRegistrationStore({}), (error) => {
+      assert.match(error.message, /REGISTRATION_LOCK_SECRET must be configured/);
+      assert.equal(error.firebaseInitializationClassification, "REGISTRATION_LOCK_SECRET_MISSING");
+      return true;
+    });
   } finally {
     if (previousSecret === undefined) delete process.env.REGISTRATION_LOCK_SECRET;
     else process.env.REGISTRATION_LOCK_SECRET = previousSecret;

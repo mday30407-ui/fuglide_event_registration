@@ -229,8 +229,9 @@ test("returns a safe API error and logs missing Firebase configuration", async (
     assert.equal(event.stage, "firebase_store_initialization");
     assert.equal(event.outcome, "failed");
     assert.equal(event.errorName, "Error");
-    assert.equal(event.errorMessage, "Firebase registration store initialization failed.");
-    assert.doesNotMatch(JSON.stringify(errors), /FIREBASE_PROJECT_ID/);
+    assert.equal(event.errorClassification, "FIREBASE_PROJECT_ID_INVALID");
+    assert.equal(event.errorMessage, "FIREBASE_PROJECT_ID must be configured as a non-empty project ID.");
+    assert.doesNotMatch(JSON.stringify(errors), /test-vercel-project/);
   });
 });
 
@@ -252,8 +253,9 @@ test("returns a safe API error when the registration lock secret is missing", as
     const event = diagnosticEvent(errors[0]);
     assert.equal(event.stage, "firebase_store_initialization");
     assert.equal(event.outcome, "failed");
-    assert.equal(event.errorMessage, "Firebase registration store initialization failed.");
-    assert.doesNotMatch(JSON.stringify(errors), /REGISTRATION_LOCK_SECRET/);
+    assert.equal(event.errorClassification, "REGISTRATION_LOCK_SECRET_MISSING");
+    assert.equal(event.errorMessage, "REGISTRATION_LOCK_SECRET must be configured.");
+    assert.doesNotMatch(JSON.stringify(errors), /test-registration-lock-secret/);
   });
 });
 
@@ -278,8 +280,9 @@ test("returns a safe API error when Firebase service-account JSON is malformed",
     const event = diagnosticEvent(errors[0]);
     assert.equal(event.stage, "firebase_store_initialization");
     assert.equal(event.outcome, "failed");
-    assert.equal(event.errorMessage, "Firebase registration store initialization failed.");
-    assert.doesNotMatch(JSON.stringify(errors), /FIREBASE_SERVICE_ACCOUNT|private_key/);
+    assert.equal(event.errorClassification, "FIREBASE_SERVICE_ACCOUNT_JSON_INVALID");
+    assert.match(event.errorMessage, /JSON|input|position/i);
+    assert.doesNotMatch(JSON.stringify(errors), /"private_key"\s*:/);
   });
 });
 
@@ -366,7 +369,8 @@ test("fails all API routes safely when Firebase service-account credentials are 
       const event = diagnosticEvent(call);
       assert.equal(event.stage, "firebase_store_initialization");
       assert.equal(event.outcome, "failed");
-      assert.equal(event.errorMessage, "Firebase registration store initialization failed.");
+      assert.equal(event.errorClassification, "FIREBASE_CREDENTIAL_INVALID");
+      assert.match(event.errorMessage, /decoder|private key/i);
     }
     assert.doesNotMatch(
       JSON.stringify(errors),

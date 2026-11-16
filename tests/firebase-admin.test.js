@@ -103,6 +103,81 @@ test("fails clearly when the Firebase project ID is missing", () => {
   });
 });
 
+test("classifies malformed service-account JSON and retains its parser exception", () => {
+  withEnvironment({
+    FIREBASE_PROJECT_ID: "test-project",
+    FIREBASE_SERVICE_ACCOUNT: "{\"private_key\":"
+  }, () => {
+    let thrown;
+    try {
+      createDatabase({
+        appSdk: {
+          applicationDefault: () => ({}),
+          cert: () => ({}),
+          getApps: () => [],
+          initializeApp: () => ({ options: {} })
+        },
+        firestoreSdk: { getFirestore: () => ({}) }
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    assert.equal(thrown.firebaseInitializationClassification, "FIREBASE_SERVICE_ACCOUNT_JSON_INVALID");
+    assert.equal(thrown.cause.name, "SyntaxError");
+  });
+});
+
+test("classifies an invalid private key while retaining Firebase Admin's exception", () => {
+  withEnvironment({
+    FIREBASE_PROJECT_ID: "test-project",
+    FIREBASE_SERVICE_ACCOUNT: JSON.stringify({
+      project_id: "test-project",
+      client_email: "service@example.invalid",
+      private_key: "invalid-private-key"
+    })
+  }, () => {
+    const originalError = new Error("Invalid private key: invalid-private-key");
+    assert.throws(() => createDatabase({
+      appSdk: {
+        applicationDefault: () => ({}),
+        cert: () => { throw originalError; },
+        getApps: () => [],
+        initializeApp: () => ({ options: {} })
+      },
+      firestoreSdk: { getFirestore: () => ({}) }
+    }), (error) => {
+      assert.equal(error.firebaseInitializationClassification, "FIREBASE_CREDENTIAL_INVALID");
+      assert.equal(error.cause, originalError);
+      return true;
+    });
+  });
+});
+
+test("rejects a service-account project ID that does not match configuration", () => {
+  withEnvironment({
+    FIREBASE_PROJECT_ID: "configured-project",
+    FIREBASE_SERVICE_ACCOUNT: JSON.stringify({
+      project_id: "account-project",
+      client_email: "service@example.invalid",
+      private_key: "private-key"
+    })
+  }, () => {
+    assert.throws(() => createDatabase({
+      appSdk: {
+        applicationDefault: () => ({}),
+        cert: () => assert.fail("A mismatched account must not be passed to cert."),
+        getApps: () => [],
+        initializeApp: () => ({ options: {} })
+      },
+      firestoreSdk: { getFirestore: () => ({}) }
+    }), (error) => {
+      assert.equal(error.firebaseInitializationClassification, "FIREBASE_PROJECT_ID_MISMATCH");
+      return true;
+    });
+  });
+});
+
 test("reuses the existing default Firebase Admin app", () => {
   const app = { name: "[DEFAULT]", options: { projectId: "test-project" } };
   withEnvironment({

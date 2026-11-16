@@ -2,9 +2,13 @@ const { createHmac, randomUUID } = require("node:crypto");
 const { REGISTRATION_FEE } = require("./registration-validation");
 
 function createRegistrationStore(database) {
-  const { FieldValue } = require("firebase-admin/firestore");
   const secret = process.env.REGISTRATION_LOCK_SECRET;
-  if (!secret) throw new Error("REGISTRATION_LOCK_SECRET must be configured.");
+  if (!secret || !secret.trim()) {
+    const error = new Error("REGISTRATION_LOCK_SECRET must be configured.");
+    error.firebaseInitializationClassification = "REGISTRATION_LOCK_SECRET_MISSING";
+    throw error;
+  }
+  const { FieldValue } = require("firebase-admin/firestore");
 
   const emailLockId = (email) => createHmac("sha256", secret)
     .update(email.trim().toLowerCase())

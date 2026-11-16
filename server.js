@@ -47,7 +47,10 @@ function createApp(options = {}) {
       return registrationStore;
     } catch (error) {
       logRequestDiagnostic(requestId, "firebase_store_initialization", "failed", error);
-      const unavailableError = new Error("Database-backed API initialization failed.");
+      const unavailableError = new Error(
+        "Database-backed API initialization failed.",
+        { cause: error }
+      );
       unavailableError.statusCode = 503;
       markDiagnosticLogged(unavailableError);
       throw unavailableError;
