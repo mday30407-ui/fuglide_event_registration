@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="./css/admin.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">FU-GLIDE</p>
+        <h1>Registration dashboard</h1>
+      </div>
+      <div class="topbar-actions">
+        <button id="exportButton" class="secondary" type="button">Export CSV</button>
+        <button id="logoutButton" class="danger" type="button">Logout</button>
+      </div>
+    </header>
+
+    <main class="dashboard-shell">
+      <section class="summary-grid">
+        <article class="stat-card">
+          <p>Total registrations</p>
+          <strong id="totalRegistrations">0</strong>
+        </article>
+        <article class="stat-card">
+          <p>Paid</p>
+          <strong id="paidRegistrations">0</strong>
+        </article>
+        <article class="stat-card">
+          <p>Pending</p>
+          <strong id="pendingRegistrations">0</strong>
+        </article>
+        <article class="stat-card accent">
+          <p>Revenue</p>
+          <strong id="totalRevenue">₹0</strong>
+        </article>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Participants</h2>
+          <span id="userBadge">Signed in</span>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>City</th>
+                <th>Category</th>
+                <th>Payment</th>
+                <th>Registered</th>
+              </tr>
+            </thead>
+            <tbody id="registrationTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="/admin/js/dashboard.js"></script>
+  </body>
+</html>

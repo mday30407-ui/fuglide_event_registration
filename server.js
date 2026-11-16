@@ -12,6 +12,8 @@ let path;
 let createRegistrationRouter;
 let createDatabase;
 let createRegistrationStore;
+let createAdminAuth;
+let parseCookies;
 let logRequestDiagnostic;
 let markDiagnosticLogged;
 
@@ -23,6 +25,7 @@ try {
   ({ createRegistrationRouter } = require("./src/registration-routes"));
   ({ createDatabase } = require("./src/db"));
   ({ createRegistrationStore } = require("./src/registration-store"));
+  ({ createAdminAuth, parseCookies } = require("./src/admin-auth"));
   ({ logRequestDiagnostic, markDiagnosticLogged } = require("./src/request-diagnostics"));
 } catch (error) {
   logStartupFailure("module-import", error);
@@ -113,14 +116,38 @@ function createApp(options = {}) {
   }));
   app.use(express.json({ limit: "16kb", strict: true }));
   const publicDirectory = path.join(__dirname, "public");
+  const adminDashboardDirectory = path.join(__dirname, "admin-dashboard");
   const staticOptions = {
     etag: true,
     maxAge: 0,
     index: false
   };
+
+  const adminAuth = createAdminAuth({
+    database: () => {
+      if (options.database) return options.database;
+      return createDatabase();
+    }
+  });
+
   app.use(express.static(publicDirectory, staticOptions));
   app.use("/public", express.static(publicDirectory, staticOptions));
   app.use("/api", registrationRouter);
+
+  app.use("/admin", adminAuth.router);
+
+  app.get("/admin/login", (request, response) => {
+    const cookies = parseCookies(request.headers.cookie || "");
+    if (cookies.admin_session) {
+      return response.redirect("/admin");
+    }
+    return response.sendFile(path.join(adminDashboardDirectory, "login.html"));
+  });
+
+  app.get("/admin", adminAuth.requireAdminAuth, (_request, response) => {
+    response.sendFile(path.join(adminDashboardDirectory, "index.html"));
+  });
+  app.use("/admin", express.static(adminDashboardDirectory, staticOptions));
   app.get("/", (_request, response) => response.sendFile(path.join(__dirname, "index.html")));
   app.use((error, _request, response, _next) => {
     if (error.type === "entity.too.large" || error.type === "entity.parse.failed") {

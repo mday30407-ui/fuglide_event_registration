@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Login</title>
+    <link rel="stylesheet" href="./css/login.css" />
+  </head>
+  <body>
+    <main class="login-shell">
+      <div class="login-card">
+        <div class="brand-block">
+          <p class="eyebrow">FU-GLIDE</p>
+          <h1>Founder&apos;s Diary 2026</h1>
+          <p class="subtext">Secure admin dashboard</p>
+        </div>
+
+        <form id="loginForm" class="login-form" novalidate>
+          <label>
+            <span>Email</span>
+            <input id="email" name="email" type="email" autocomplete="email" required />
+          </label>
+
+          <label>
+            <span>Password</span>
+            <input id="password" name="password" type="password" autocomplete="current-password" required />
+          </label>
+
+          <button type="submit">Sign in</button>
+          <p id="status" class="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </main>
+
+    <script src="/admin/js/login.js"></script>
+  </body>
+</html>
