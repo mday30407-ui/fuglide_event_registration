@@ -419,6 +419,8 @@ function createAdminAuth(options = {}) {
         "mobile",
         "gender",
         "city",
+        "participantCategory",
+        "participationType",
         "paymentStatus",
         "razorpayOrderId",
         "razorpayPaymentId",
