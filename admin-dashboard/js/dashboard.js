@@ -63,6 +63,7 @@ function populateRegistrations(registrations) {
       <td>${escapeHtml(registration.email || "-")}</td>
       <td>${escapeHtml(registration.city || "-")}</td>
       <td>${escapeHtml(registration.participantCategory || registration.category || registration.participationType || "-")}</td>
+      <td>${escapeHtml(registration.participationType || "-")}</td>
       <td>${escapeHtml(registration.paymentStatus || "PENDING")}</td>
       <td>${formatDate(registration.registrationDate || registration.paidAt)}</td>
     </tr>
