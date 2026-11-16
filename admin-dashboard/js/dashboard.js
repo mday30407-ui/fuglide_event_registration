@@ -31,7 +31,24 @@ function formatMoney(value) {
 function formatDate(value) {
   if (!value) return "-";
   if (typeof value.toDate === "function") return value.toDate().toLocaleString();
-  return new Date(value).toLocaleString();
+  if (typeof value === "object") {
+    const seconds = value._seconds ?? value.seconds;
+    if (typeof seconds === "number") {
+      return new Date(seconds * 1000).toLocaleString();
+    }
+    return "-";
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleString();
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function populateRegistrations(registrations) {
@@ -42,11 +59,11 @@ function populateRegistrations(registrations) {
 
   tableBody.innerHTML = registrations.map((registration) => `
     <tr>
-      <td>${registration.fullName || "-"}</td>
-      <td>${registration.email || "-"}</td>
-      <td>${registration.city || "-"}</td>
-      <td>${registration.participantCategory || registration.category || registration.participationType || "-"}</td>
-      <td>${registration.paymentStatus || "PENDING"}</td>
+      <td>${escapeHtml(registration.fullName || "-")}</td>
+      <td>${escapeHtml(registration.email || "-")}</td>
+      <td>${escapeHtml(registration.city || "-")}</td>
+      <td>${escapeHtml(registration.participantCategory || registration.category || registration.participationType || "-")}</td>
+      <td>${escapeHtml(registration.paymentStatus || "PENDING")}</td>
       <td>${formatDate(registration.registrationDate || registration.paidAt)}</td>
     </tr>
   `).join("");
