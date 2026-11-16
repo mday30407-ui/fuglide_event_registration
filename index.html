@@ -6,9 +6,10 @@
     <meta name="theme-color" content="#07101f">
     <meta name="description" content="Register for FU-GLIDE's FOUNDER'S DIARY 2026.">
     <title>FOUNDER'S DIARY 2026 | Registration</title>
-    <link rel="stylesheet" href="/registration.css?v=razorpay-payment">
+    <link rel="stylesheet" href="/registration.css?v=event-reminder-20261211">
     <script src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
     <script src="/app.js?v=razorpay-payment" defer></script>
+    <script src="/event-reminder.js?v=20261116" defer></script>
   </head>
   <body>
     <main class="registration-shell">
@@ -129,5 +130,41 @@
         <button class="print-button" id="print-button" type="button">Print / Save Confirmation</button>
       </section>
     </main>
+
+    <aside class="event-reminder" aria-label="Event reminder">
+      <button
+        class="event-reminder__toggle"
+        id="event-reminder-toggle"
+        type="button"
+        aria-expanded="false"
+        aria-controls="event-reminder-details"
+      >
+        <span class="event-reminder__icon" aria-hidden="true">FD</span>
+        <span class="event-reminder__toggle-copy">
+          <strong id="event-reminder-summary">FOUNDER'S DIARY · 11 DEC</strong>
+          <span id="event-reminder-countdown">Loading countdown…</span>
+        </span>
+        <span class="event-reminder__chevron" aria-hidden="true">⌃</span>
+      </button>
+      <section class="event-reminder__details" id="event-reminder-details" hidden>
+        <p class="event-reminder__eyebrow">MARK YOUR CALENDAR</p>
+        <h2>FOUNDER'S DIARY <span>2026</span></h2>
+        <p class="event-reminder__date">11 December 2026</p>
+        <div class="event-reminder__timer" aria-label="Time remaining to the registration reminder date">
+          <div><strong id="reminder-days">--</strong><span>days</span></div>
+          <div><strong id="reminder-hours">--</strong><span>hrs</span></div>
+          <div><strong id="reminder-minutes">--</strong><span>min</span></div>
+          <div><strong id="reminder-seconds">--</strong><span>sec</span></div>
+        </div>
+        <p class="event-reminder__deadline">
+          Registration reminder: <strong>by 9 December</strong>
+          <span>(2 days before the event)</span>
+        </p>
+        <p class="event-reminder__fee">Registration fee <strong>₹250</strong></p>
+        <button class="event-reminder__cta" id="event-reminder-register" type="button">
+          Register now
+        </button>
+      </section>
+    </aside>
   </body>
 </html>
