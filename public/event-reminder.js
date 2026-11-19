@@ -37,7 +37,9 @@ reminderToggle.addEventListener("click", () => {
 });
 
 document.querySelector("#event-reminder-register").addEventListener("click", () => {
-  window.location.assign("https://fuglide-event-registration.vercel.app/");
+  const registrationForm = document.querySelector("#registration-form");
+  registrationForm.scrollIntoView({ behavior: "smooth", block: "start" });
+  registrationForm.querySelector("input").focus({ preventScroll: true });
 });
 
 updateReminderCountdown();
