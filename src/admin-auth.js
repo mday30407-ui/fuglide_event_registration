@@ -1,6 +1,10 @@
 const crypto = require("node:crypto");
 const express = require("express");
 const { REGISTRATION_FEE } = require("./registration-validation");
+const {
+  InvalidScreenshotPathError,
+  ScreenshotNotFoundError
+} = require("./manual-storage");
 
 const AUTH_COOKIE_NAME = "admin_session";
 const CSRF_COOKIE_NAME = "admin_csrf";
@@ -126,7 +130,7 @@ function getAdminPassword() {
 }
 
 function getAdminSessionSecret() {
-  return process.env.ADMIN_SESSION_SECRET || process.env.SESSION_SECRET || "admin-dashboard-development-secret";
+  return process.env.ADMIN_SESSION_SECRET || process.env.SESSION_SECRET || "";
 }
 
 function getRateLimitBucket(email, ip) {
@@ -194,7 +198,7 @@ function verifyPassword(password, configuredHash) {
 
 function createRequireAuth(checkRole = true, secret = getAdminSessionSecret()) {
   return function requireAdminAuth(request, response, next) {
-    const configured = isAdminConfigured();
+    const configured = isAdminConfigured(secret);
     if (!configured) {
       if (request.accepts("html")) {
         return response.status(503).send("Admin access is not configured yet.");
@@ -228,34 +232,59 @@ function createRequireAuth(checkRole = true, secret = getAdminSessionSecret()) {
     return next();
   };
 }
-
 function applyCsrfProtection(request, response, next) {
-  const tokenFromHeader = request.get("X-CSRF-Token") || request.get("x-csrf-token");
+  const tokenFromHeader = request.get("X-CSRF-Token");
   const tokenFromCookie = readCookie(request, CSRF_COOKIE_NAME);
 
-  if (request.method === "GET" || request.method === "HEAD" || request.method === "OPTIONS") {
+  // Allow safe HTTP methods
+  if (["GET", "HEAD", "OPTIONS"].includes(request.method)) {
     return next();
   }
 
-  if (tokenFromHeader && tokenFromCookie && safeEqual(tokenFromHeader, tokenFromCookie)) {
+  // Require both tokens and verify that they match
+  if (
+    tokenFromHeader &&
+    tokenFromCookie &&
+    safeEqual(tokenFromHeader, tokenFromCookie)
+  ) {
     return next();
   }
 
-  const origin = request.get("Origin");
-  const host = request.get("Host");
-  if (origin && host && origin.replace(/^https?:\/\//i, "") === host) {
-    return next();
-  }
-
-  if (!tokenFromHeader && !tokenFromCookie) {
-    return next();
-  }
-
+  // Reject all other state-changing requests
   return response.status(403).json({ error: "Invalid CSRF token." });
 }
 
-function isAdminConfigured() {
-  return Boolean(getAdminEmail() && (getAdminPasswordHash() || getAdminPassword()));
+function isAdminConfigured(sessionSecret = getAdminSessionSecret()) {
+  return Boolean(
+    getAdminEmail() &&
+    (getAdminPasswordHash() || getAdminPassword()) &&
+    typeof sessionSecret === "string" &&
+    sessionSecret.length >= 32 &&
+    sessionSecret.trim() === sessionSecret
+  );
+}
+
+function safeStorageErrorName(error) {
+  return error && typeof error.name === "string" &&
+    /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(error.name)
+    ? error.name
+    : "Error";
+}
+
+function safeStorageErrorCode(error) {
+  const code = error && error.code;
+  const normalized = typeof code === "string" || typeof code === "number"
+    ? String(code)
+    : "";
+  return /^[A-Za-z0-9_.-]{1,64}$/.test(normalized) ? normalized : null;
+}
+
+function escapeCsvField(value) {
+  let text = String(value ?? "");
+  if (/^[\s\u0000-\u001f\u007f-\u009f]*[=+\-@]/.test(text)) {
+    text = `'${text}`;
+  }
+  return `"${text.replace(/"/g, '""')}"`;
 }
 
 function createAdminAuth(options = {}) {
@@ -266,17 +295,20 @@ function createAdminAuth(options = {}) {
   const databaseResolver = typeof options.database === "function"
     ? options.database
     : () => options.database || null;
+  const screenshotStorageResolver = typeof options.screenshotStorage === "function"
+    ? options.screenshotStorage
+    : () => options.screenshotStorage || null;
 
   const requireAdminAuth = createRequireAuth(true, sessionSecret);
   const requireAdminRole = createRequireAuth(false, sessionSecret);
   const router = express.Router();
 
-  router.use((request, response, next) => {
-    if (request.path.startsWith("/api/")) {
-      return applyCsrfProtection(request, response, next);
+  function requireAdminConfiguration(_request, response, next) {
+    if (!isAdminConfigured(sessionSecret)) {
+      return response.status(503).json({ error: "Admin access is not configured." });
     }
     return next();
-  });
+  }
 
   router.get("/api/session", (request, response) => {
     const csrfToken = readCookie(request, CSRF_COOKIE_NAME) || createRandomToken();
@@ -303,11 +335,7 @@ function createAdminAuth(options = {}) {
     });
   });
 
-  router.post("/api/login", (request, response) => {
-    if (!isAdminConfigured()) {
-      return response.status(503).json({ error: "Admin access is not configured." });
-    }
-
+  router.post("/api/login", requireAdminConfiguration, applyCsrfProtection, (request, response) => {
     const suppliedEmail = normalizeEmail(request.body && request.body.email);
     const suppliedPassword = typeof request.body && typeof request.body.password === "string"
       ? request.body.password
@@ -355,7 +383,7 @@ function createAdminAuth(options = {}) {
     });
   });
 
-  router.post("/api/logout", requireAdminAuth, (request, response) => {
+  router.post("/api/logout", requireAdminAuth, applyCsrfProtection, (request, response) => {
     clearCookie(response, AUTH_COOKIE_NAME, "/");
     clearCookie(response, CSRF_COOKIE_NAME, "/");
     response.json({ success: true });
@@ -404,7 +432,7 @@ function createAdminAuth(options = {}) {
     }
   });
 
-  router.delete("/api/registrations/:id", requireAdminAuth, async (request, response) => {
+  router.delete("/api/registrations/:id", requireAdminAuth, applyCsrfProtection, async (request, response) => {
     const registrationId = request.params.id;
     if (!/^FD26-[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i.test(registrationId)) {
       return response.status(400).json({ error: "Registration ID is invalid." });
@@ -469,11 +497,9 @@ function createAdminAuth(options = {}) {
         "registrationDate",
         "paidAt"
       ];
-      const csv = [headers.join(",")].concat(rows.map((row) => headers.map((key) => {
-        const value = row[key] === undefined || row[key] === null ? "" : row[key];
-        const text = typeof value === "string" ? value.replace(/"/g, '""') : String(value);
-        return `"${text}"`;
-      }).join(","))).join("\n");
+      const csv = [headers.map(escapeCsvField).join(",")]
+        .concat(rows.map((row) => headers.map((key) => escapeCsvField(row[key])).join(",")))
+        .join("\n");
       response.header("Content-Type", "text/csv; charset=utf-8");
       response.header("Content-Disposition", "attachment; filename=registrations.csv");
       return response.send(csv);
@@ -544,7 +570,7 @@ function createAdminAuth(options = {}) {
     }
   });
 
-  router.delete("/api/manual/registrations/:id", requireAdminAuth, async (request, response) => {
+  router.delete("/api/manual/registrations/:id", requireAdminAuth, applyCsrfProtection, async (request, response) => {
     const registrationId = request.params.id;
     if (!/^FD26-M-[A-F0-9]{12}$/.test(registrationId)) {
       return response.status(400).json({ error: "Registration ID is invalid." });
@@ -594,55 +620,59 @@ function createAdminAuth(options = {}) {
   });
 
   router.get("/api/manual/registrations/:id/screenshot", requireAdminAuth, async (request, response) => {
+    const registrationId = request.params.id;
+    if (!/^FD26-M-[A-F0-9]{12}$/.test(registrationId)) {
+      return response.status(404).json({ error: "Payment screenshot is unavailable." });
+    }
     const database = databaseResolver();
     if (!database) {
       return response.status(503).json({ error: "Admin data source is not available." });
     }
     try {
       const snapshot = await database.collection("manual_payment_registrations")
-        .doc(request.params.id)
+        .doc(registrationId)
         .get();
       if (!snapshot.exists) {
         return response.status(404).json({ error: "Registration not found." });
       }
       const objectPath = snapshot.data().paymentScreenshotStoragePath;
       if (typeof objectPath !== "string" ||
-          !objectPath.startsWith("manual-payment-screenshots/")) {
+          !objectPath) {
         return response.status(404).json({ error: "Payment screenshot is unavailable." });
       }
-      let buffer;
-      if (process.env.MANUAL_PAYMENT_STORAGE === "local") {
-        const fs = require("node:fs/promises");
-        const path = require("node:path");
-        const uploadDirectory = path.resolve(
-          path.join(__dirname, "..", "manual-registration"),
-          process.env.MANUAL_PAYMENT_UPLOAD_DIR || "private-uploads"
-        );
-        const destination = path.resolve(uploadDirectory, ...objectPath.split("/"));
-        if (!destination.startsWith(`${uploadDirectory}${path.sep}`)) {
-          return response.status(404).json({ error: "Payment screenshot is unavailable." });
-        }
-        buffer = await fs.readFile(destination);
-      } else {
-        const bucketName = process.env.FIREBASE_STORAGE_BUCKET ||
-          `${process.env.FIREBASE_PROJECT_ID}.firebasestorage.app`;
-        const { getStorage } = require("firebase-admin/storage");
-        const bucket = getStorage().bucket(bucketName);
-        [buffer] = await bucket.file(objectPath).download();
+      const screenshotStorage = screenshotStorageResolver();
+      if (!screenshotStorage ||
+          typeof screenshotStorage.getScreenshot !== "function") {
+        return response.status(503).json({ error: "Payment screenshot storage is unavailable." });
       }
       const contentType = objectPath.endsWith(".png") ? "image/png"
         : objectPath.endsWith(".webp") ? "image/webp"
           : "image/jpeg";
-      response.set("Cache-Control", "no-store");
-      response.set("Content-Disposition", "inline");
+      const buffer = await screenshotStorage.getScreenshot(objectPath);
+      const extension = contentType === "image/png" ? "png"
+        : contentType === "image/webp" ? "webp" : "jpg";
+      response.set("Cache-Control", "no-store, private");
+      response.set("Pragma", "no-cache");
+      response.set("Referrer-Policy", "no-referrer");
+      response.set("X-Content-Type-Options", "nosniff");
+      response.set("Content-Disposition", `inline; filename="payment-screenshot.${extension}"`);
       response.type(contentType);
       return response.send(buffer);
-    } catch {
-      return response.status(404).json({ error: "Payment screenshot is unavailable." });
+    } catch (error) {
+      if (error instanceof ScreenshotNotFoundError ||
+          error instanceof InvalidScreenshotPathError) {
+        return response.status(404).json({ error: "Payment screenshot is unavailable." });
+      }
+      console.error("Admin screenshot retrieval failed:", {
+        registrationId,
+        name: safeStorageErrorName(error),
+        code: safeStorageErrorCode(error)
+      });
+      return response.status(503).json({ error: "Payment screenshot is temporarily unavailable." });
     }
   });
 
-  router.post("/api/manual/registrations/:id/approve", requireAdminAuth, async (request, response) => {
+  router.post("/api/manual/registrations/:id/approve", requireAdminAuth, applyCsrfProtection, async (request, response) => {
     const database = databaseResolver();
     if (!database) {
       return response.status(503).json({ error: "Admin data source is not available." });
@@ -650,24 +680,39 @@ function createAdminAuth(options = {}) {
     try {
       const registrationRef = database.collection("manual_payment_registrations")
         .doc(request.params.id);
-      const snapshot = await registrationRef.get();
-      if (!snapshot.exists) {
-        return response.status(404).json({ error: "Registration not found." });
-      }
-      await registrationRef.update({
-        paymentStatus: "VERIFIED",
-        invitationStatus: "READY_TO_SEND",
-        rejectionReason: null,
-        verifiedAt: new Date(),
-        verifiedBy: request.admin.sub
+      await database.runTransaction(async (transaction) => {
+        const snapshot = await transaction.get(registrationRef);
+        if (!snapshot.exists) {
+          const error = new Error("Registration not found.");
+          error.statusCode = 404;
+          throw error;
+        }
+        if (snapshot.data().paymentStatus !== "PENDING_VERIFICATION") {
+          const error = new Error("Registration is no longer pending verification.");
+          error.statusCode = 409;
+          throw error;
+        }
+        transaction.update(registrationRef, {
+          paymentStatus: "VERIFIED",
+          invitationStatus: "READY_TO_SEND",
+          rejectionReason: null,
+          verifiedAt: new Date(),
+          verifiedBy: request.admin.sub
+        });
       });
       return response.json({ success: true, paymentStatus: "VERIFIED" });
-    } catch {
+    } catch (error) {
+      if (error.statusCode === 404) {
+        return response.status(404).json({ error: "Registration not found." });
+      }
+      if (error.statusCode === 409) {
+        return response.status(409).json({ error: "Registration is no longer pending verification." });
+      }
       return response.status(500).json({ error: "The payment could not be approved." });
     }
   });
 
-  router.post("/api/manual/registrations/:id/reject", requireAdminAuth, async (request, response) => {
+  router.post("/api/manual/registrations/:id/reject", requireAdminAuth, applyCsrfProtection, async (request, response) => {
     const database = databaseResolver();
     if (!database) {
       return response.status(503).json({ error: "Admin data source is not available." });
@@ -681,19 +726,34 @@ function createAdminAuth(options = {}) {
     try {
       const registrationRef = database.collection("manual_payment_registrations")
         .doc(request.params.id);
-      const snapshot = await registrationRef.get();
-      if (!snapshot.exists) {
-        return response.status(404).json({ error: "Registration not found." });
-      }
-      await registrationRef.update({
-        paymentStatus: "REJECTED",
-        invitationStatus: "NOT_READY",
-        rejectionReason: reason,
-        verifiedAt: new Date(),
-        verifiedBy: request.admin.sub
+      await database.runTransaction(async (transaction) => {
+        const snapshot = await transaction.get(registrationRef);
+        if (!snapshot.exists) {
+          const error = new Error("Registration not found.");
+          error.statusCode = 404;
+          throw error;
+        }
+        if (snapshot.data().paymentStatus !== "PENDING_VERIFICATION") {
+          const error = new Error("Registration is no longer pending verification.");
+          error.statusCode = 409;
+          throw error;
+        }
+        transaction.update(registrationRef, {
+          paymentStatus: "REJECTED",
+          invitationStatus: "NOT_READY",
+          rejectionReason: reason,
+          verifiedAt: new Date(),
+          verifiedBy: request.admin.sub
+        });
       });
       return response.json({ success: true, paymentStatus: "REJECTED" });
-    } catch {
+    } catch (error) {
+      if (error.statusCode === 404) {
+        return response.status(404).json({ error: "Registration not found." });
+      }
+      if (error.statusCode === 409) {
+        return response.status(409).json({ error: "Registration is no longer pending verification." });
+      }
       return response.status(500).json({ error: "The payment could not be rejected." });
     }
   });
@@ -711,14 +771,13 @@ function createAdminAuth(options = {}) {
         "paymentStatus", "invitationStatus", "submittedAt", "verifiedAt",
         "verifiedBy", "rejectionReason"
       ];
-      const quote = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
       const rows = snapshot.docs.map((doc) => {
         const row = doc.data();
-        return headers.map((key) => quote(row[key])).join(",");
+        return headers.map((key) => escapeCsvField(row[key])).join(",");
       });
       response.header("Content-Type", "text/csv; charset=utf-8");
       response.header("Content-Disposition", "attachment; filename=manual-payment-registrations.csv");
-      return response.send([headers.join(","), ...rows].join("\n"));
+      return response.send([headers.map(escapeCsvField).join(","), ...rows].join("\n"));
     } catch {
       return response.status(503).json({ error: "Unable to export manual registrations." });
     }
@@ -728,7 +787,7 @@ function createAdminAuth(options = {}) {
     router,
     requireAdminAuth,
     requireAdminRole,
-    isConfigured: isAdminConfigured,
+    isConfigured: () => isAdminConfigured(sessionSecret),
     createSession: createSessionPayload,
     verifySession: (token) => verifyTokenPayload(token, sessionSecret),
     verifyPassword: (password, hash) => verifyPassword(password, hash || passwordHash)
@@ -742,5 +801,6 @@ module.exports = {
   createRequireAuth,
   verifyPassword,
   parseCookies,
-  getAdminSessionSecret
+  getAdminSessionSecret,
+  escapeCsvField
 };

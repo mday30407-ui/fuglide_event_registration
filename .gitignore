@@ -19,6 +19,9 @@ serviceAccountKey.json
 # Local deployment state
 .vercel/
 
+# Private payment uploads
+**/private-uploads/
+
 # Dependencies
 node_modules/
 

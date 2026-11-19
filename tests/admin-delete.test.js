@@ -101,7 +101,7 @@ function setAdminEnvironment() {
   process.env.ADMIN_EMAIL = "admin@example.test";
   process.env.ADMIN_PASSWORD = "test-admin-password";
   delete process.env.ADMIN_PASSWORD_HASH;
-  process.env.ADMIN_SESSION_SECRET = "test-admin-session-secret";
+  process.env.ADMIN_SESSION_SECRET = "test-admin-session-secret-value-32";
   return () => {
     for (const name of names) {
       if (previous[name] === undefined) delete process.env[name];
@@ -121,9 +121,9 @@ function mergeCookies(cookieMap, headers) {
   }
 }
 
-async function withAdminServer(database, callback) {
+async function withAdminServer(database, callback, appOptions = {}) {
   const restoreEnvironment = setAdminEnvironment();
-  const server = createApp({ database }).listen(0);
+  const server = createApp({ database, ...appOptions }).listen(0);
   await new Promise((resolve) => server.once("listening", resolve));
   const address = `http://127.0.0.1:${server.address().port}`;
   try {
@@ -247,11 +247,13 @@ test("registration delete leaves the record intact when Firestore transaction fa
 
 test("manual registration delete removes only its matching duplicate lock", async () => {
   const database = createMemoryDatabase();
+  let screenshotDeleteCalls = 0;
   database.seed("manual_payment_registrations", manualId, {
     registrationId: manualId,
     fullName: "Verified Participant",
     paymentStatus: "VERIFIED",
-    paymentScreenshotStoragePath: "manual-payment-screenshots/example/proof.png"
+    paymentScreenshotStoragePath:
+      `manual-payment-screenshots/${manualId}/00000000-0000-4000-8000-000000000001.png`
   });
   database.seed("manual_payment_duplicate_locks", "matching-lock", {
     registrationId: manualId,
@@ -277,5 +279,12 @@ test("manual registration delete removes only its matching duplicate lock", asyn
     const [audit] = database.entries("admin_audit_logs");
     assert.equal(audit[1].registrationType, "manual");
     assert.equal(audit[1].paymentStatus, "VERIFIED");
+    assert.equal(screenshotDeleteCalls, 0);
+  }, {
+    manualStorage: {
+      async deleteScreenshot() {
+        screenshotDeleteCalls += 1;
+      }
+    }
   });
 });

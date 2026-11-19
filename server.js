@@ -35,6 +35,28 @@ try {
 function createApp(options = {}) {
   const app = express();
   let registrationStore = options.store || null;
+  let manualFirebase = options.manualFirebase || null;
+  let manualStorage = options.manualStorage || null;
+
+  function getManualFirebase() {
+    if (!manualFirebase) {
+      const { createFirebase } = require("./src/manual-firebase");
+      manualFirebase = createFirebase();
+    }
+    return manualFirebase;
+  }
+
+  function getManualStorage() {
+    if (!manualStorage) {
+      const firebase = getManualFirebase();
+      const { createStorageAdapter } = require("./src/manual-storage");
+      manualStorage = createStorageAdapter({
+        storage: firebase.storage,
+        bucketName: firebase.bucketName
+      });
+    }
+    return manualStorage;
+  }
 
   function getRegistrationStore(context) {
     const requestId = context && context.requestId;
@@ -127,7 +149,8 @@ function createApp(options = {}) {
     database: () => {
       if (options.database) return options.database;
       return createDatabase();
-    }
+    },
+    screenshotStorage: getManualStorage
   });
 
   app.use(express.static(publicDirectory, staticOptions));
@@ -141,16 +164,9 @@ function createApp(options = {}) {
     try {
       if (!manualRegistrationRouter) {
         const { createRegistrationRouter } = require("./src/manual-registration-routes");
-        const { createFirebase } = require("./src/manual-firebase");
-        const { createStorageAdapter } = require("./src/manual-storage");
-        const firebase = createFirebase();
-        const storage = createStorageAdapter({
-          storage: firebase.storage,
-          bucketName: firebase.bucketName
-        });
         manualRegistrationRouter = createRegistrationRouter({
-          firestore: firebase.firestore,
-          storage
+          firestore: options.manualFirestore || getManualFirebase().firestore,
+          storage: getManualStorage()
         });
       }
       return manualRegistrationRouter(request, response, next);
