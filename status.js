@@ -55,10 +55,30 @@ async function checkStatus() {
     document.getElementById("status-result-submitted").textContent = formatDate(payload.submittedAt);
     document.getElementById("status-result-verified").textContent = formatDate(payload.verifiedAt);
     document.getElementById("status-result-invitation").textContent = payload.invitationStatus || "-";
-    const reason = document.getElementById("status-rejection-reason");
-    reason.textContent = payload.rejectionReason ? `Reason: ${payload.rejectionReason}` : "";
-    reason.hidden = !payload.rejectionReason;
-    document.getElementById("invitation-note").hidden = payload.invitationStatus !== "READY_TO_SEND";
+    const statusMessage = document.getElementById("status-message");
+    const messageIcon = document.getElementById("status-message-icon");
+    const messageText = document.getElementById("status-message-text");
+    statusMessage.classList.remove("status-message--success", "status-message--rejected");
+    statusMessage.hidden = true;
+    messageIcon.textContent = "";
+    messageText.textContent = "";
+
+    if (payload.paymentStatus === "REJECTED") {
+      const rejectionReason = typeof payload.rejectionReason === "string"
+        ? payload.rejectionReason.trim()
+        : "";
+      statusMessage.classList.add("status-message--rejected");
+      messageIcon.textContent = "!";
+      messageText.textContent = rejectionReason ||
+        "Your payment verification was rejected. Please contact the event team for assistance.";
+      statusMessage.hidden = false;
+    } else if (payload.invitationStatus === "READY_TO_SEND") {
+      statusMessage.classList.add("status-message--success");
+      messageIcon.textContent = "✓";
+      messageText.textContent =
+        "PAYMENT VERIFIED — INVITATION WILL BE SENT TO YOUR WHATSAPP NUMBER BY OUR TEAM.";
+      statusMessage.hidden = false;
+    }
     document.getElementById("status-result").hidden = false;
     form.hidden = true;
     document.getElementById("status-loading").hidden = true;

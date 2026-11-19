@@ -6,8 +6,8 @@
   <meta name="referrer" content="no-referrer">
   <meta name="theme-color" content="#080d18">
   <title>Registration Status — FOUNDER'S DIARY 2026</title>
-  <link rel="stylesheet" href="./styles.css?v=20261119-status">
-  <script src="./status.js?v=20261119-status" defer></script>
+  <link rel="stylesheet" href="./styles.css?v=20261120-status-message">
+  <script src="./status.js?v=20261120-status-message" defer></script>
 </head>
 <body>
   <main class="confirmation status-page">
@@ -38,8 +38,10 @@
         <div><dt>Verified</dt><dd id="status-result-verified"></dd></div>
         <div><dt>Invitation status</dt><dd id="status-result-invitation"></dd></div>
       </dl>
-      <p id="status-rejection-reason" class="disclaimer" hidden></p>
-      <p id="invitation-note" class="status-note" hidden>PAYMENT VERIFIED — INVITATION WILL BE SENT TO YOUR WHATSAPP NUMBER BY OUR TEAM.</p>
+      <p id="status-message" class="status-message" role="status" hidden>
+        <span id="status-message-icon" class="status-message-icon" aria-hidden="true"></span>
+        <span id="status-message-text"></span>
+      </p>
       <button id="refresh-status" class="status-link" type="button">REFRESH STATUS</button>
     </section>
 
