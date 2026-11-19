@@ -14,15 +14,10 @@ const upiId = document.getElementById("upi-id");
 const upiIdValue = upiId ? upiId.textContent.trim() : "";
 if (upiPayButton && upiIdValue) {
   upiPayButton.addEventListener("click", () => {
-    const parameters = new URLSearchParams({
-      pa: upiIdValue,
-      pn: "Vinoow Kuttyma",
-      am: "100",
-      cu: "INR",
-      tn: "Founder’s Diary 2026 Registration Fee"
-    });
+    const payeeName = encodeURIComponent("Vinoow Kuttyma").replace(/%20/g, "%20");
+    const upiUri = `upi://pay?pa=${upiIdValue}&pn=${payeeName}&am=100.00&cu=INR&aid=uGICAgKCLyIKISg`;
     upiPayStatus.textContent = "Opening a UPI app. If no app opens, use the QR code or copy the UPI ID.";
-    window.location.href = `upi://pay?${parameters.toString()}`;
+    window.location.assign(upiUri);
   });
 } else if (upiPayButton) {
   upiPayButton.disabled = true;
