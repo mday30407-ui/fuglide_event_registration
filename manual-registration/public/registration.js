@@ -6,8 +6,46 @@ const submitButton = document.getElementById("submit-button");
 const errorBox = document.getElementById("form-error");
 let submitting = false;
 
+const upiPayButton = document.getElementById("upi-pay-button");
+const upiPayStatus = document.getElementById("upi-pay-status");
+const copyUpiButton = document.getElementById("copy-upi-id");
+const upiId = document.getElementById("upi-id");
+
+const upiIdValue = upiId ? upiId.textContent.trim() : "";
+if (upiPayButton && upiIdValue) {
+  upiPayButton.addEventListener("click", () => {
+    const parameters = new URLSearchParams({
+      pa: upiIdValue,
+      pn: "Vinoow Kuttyma",
+      am: "250",
+      cu: "INR",
+      tn: "Founder’s Diary 2026 Registration Fee"
+    });
+    upiPayStatus.textContent = "Opening a UPI app. If no app opens, use the QR code or copy the UPI ID.";
+    window.location.href = `upi://pay?${parameters.toString()}`;
+  });
+} else if (upiPayButton) {
+  upiPayButton.disabled = true;
+}
+
+if (copyUpiButton && upiId) {
+  copyUpiButton.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(upiId.textContent.trim());
+      upiPayStatus.textContent = "UPI ID copied successfully.";
+    } catch {
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      const range = document.createRange();
+      range.selectNodeContents(upiId);
+      selection.addRange(range);
+      upiPayStatus.textContent = `Copy this UPI ID manually: ${upiId.textContent.trim()}`;
+    }
+  });
+}
+
 const qr = document.getElementById("payment-qr");
-qr.addEventListener("error", () => {
+qr?.addEventListener("error", () => {
   qr.hidden = true;
   document.getElementById("qr-placeholder").hidden = false;
 });
