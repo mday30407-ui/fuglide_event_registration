@@ -102,7 +102,7 @@ function createApp(options = {}) {
         fontSrc: ["'self'", "data:"],
         formAction: ["'self'", "https://api.razorpay.com"],
         frameSrc: ["'self'", "https://api.razorpay.com", "https://checkout.razorpay.com"],
-        imgSrc: ["'self'", "data:", "https:"],
+        imgSrc: ["'self'", "data:", "blob:", "https:"],
         objectSrc: ["'none'"],
         scriptSrc: ["'self'", "https://checkout.razorpay.com"],
         styleSrc: ["'self'", "'unsafe-inline'"]
@@ -133,6 +133,39 @@ function createApp(options = {}) {
   app.use(express.static(publicDirectory, staticOptions));
   app.use("/public", express.static(publicDirectory, staticOptions));
   app.use("/api", registrationRouter);
+  let manualRegistrationRouter = null;
+  app.use("/api", (request, response, next) => {
+    if (request.path !== "/registrations" && request.path !== "/registration-status") {
+      return next();
+    }
+    try {
+      if (!manualRegistrationRouter) {
+        const { createRegistrationRouter } = require("./src/manual-registration-routes");
+        const { createFirebase } = require("./src/manual-firebase");
+        const { createStorageAdapter } = require("./src/manual-storage");
+        const firebase = createFirebase();
+        const storage = createStorageAdapter({
+          storage: firebase.storage,
+          bucketName: firebase.bucketName
+        });
+        manualRegistrationRouter = createRegistrationRouter({
+          firestore: firebase.firestore,
+          storage
+        });
+      }
+      return manualRegistrationRouter(request, response, next);
+    } catch (error) {
+      logRequestDiagnostic(
+        "manual-registration",
+        "manual_registration_initialization",
+        "failed",
+        error
+      );
+      return response.status(503).json({
+        error: "Manual registration is currently unavailable."
+      });
+    }
+  });
 
   app.use("/admin", adminAuth.router);
 

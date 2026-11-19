@@ -1,170 +1,125 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#07101f">
-    <meta name="description" content="Register for FU-GLIDE's FOUNDER'S DIARY 2026.">
-    <title>FOUNDER'S DIARY 2026 | Registration</title>
-    <link rel="stylesheet" href="/registration.css?v=event-reminder-20261211">
-    <script src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
-    <script src="/app.js?v=razorpay-payment" defer></script>
-    <script src="/event-reminder.js?v=20261116" defer></script>
-  </head>
-  <body>
-    <main class="registration-shell">
-      <header class="form-header">
-        <p class="brand-mark">FU-GLIDE</p>
-        <h1>FOUNDER'S DIARY <span>2026</span></h1>
-        <p class="form-header__subtitle">Registration Form</p>
-        <p class="contact-link">Contact: <a href="mailto:fuglide@gmail.com">fuglide@gmail.com</a></p>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080d18">
+  <title>FOUNDER'S DIARY 2026 — Manual Registration</title>
+  <link rel="stylesheet" href="/styles.css?v=20261119-status">
+  <script src="/registration.js?v=20261119-status" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <section class="payment-panel" aria-labelledby="event-title">
+      <div>
+        <p class="brand">FU-GLIDE</p>
+        <p class="eyebrow">2026 EDITION</p>
+        <h1 id="event-title">FOUNDER'S <span>DIARY</span></h1>
+        <p class="subtitle">Untold Stories of Business Leaders</p>
+      </div>
+
+      <div class="event-meta">
+        <div><span>Date</span><strong>11 December 2026</strong></div>
+        <div><span>Location</span><strong>Dindigul, Tamil Nadu</strong></div>
+      </div>
+
+      <div class="qr-card">
+        <div class="fee"><span>Registration fee</span><strong>₹250</strong></div>
+        <div class="qr-wrap">
+          <img id="payment-qr" src="./assets/payment-qr.jpeg" alt="Official UPI payment QR code">
+          <p id="qr-placeholder" class="qr-placeholder" hidden>Official UPI QR is being configured.<br>Please check back before payment.</p>
+        </div>
+        <p class="qr-instruction">Scan the organizer's official UPI QR and pay <strong>₹250</strong>.</p>
+      </div>
+
+      <div class="warning">
+        <strong>Manual verification</strong>
+        <span>Registration will be reviewed manually. Your registration is not confirmed until payment is verified.</span>
+      </div>
+    </section>
+
+    <section class="form-panel" id="registration-panel" aria-labelledby="form-title">
+      <header class="form-heading">
+        <p>Secure your place</p>
+        <h2 id="form-title">Registration Details</h2>
       </header>
 
-      <section class="registration-card" id="registration-panel" aria-labelledby="form-title">
-        <h2 class="visually-hidden" id="form-title">Registration details</h2>
-        <form id="registration-form">
-          <fieldset>
-            <legend>Personal Details</legend>
-            <div class="form-grid">
-              <label class="field field--wide">
-                <span>Full Name <b aria-hidden="true">*</b></span>
-                <input name="fullName" type="text" autocomplete="name" maxlength="120" required>
-              </label>
-              <label class="field">
-                <span>Email Address <b aria-hidden="true">*</b></span>
-                <input name="email" type="email" autocomplete="email" maxlength="254" required>
-              </label>
-              <label class="field">
-                <span>Mobile Number <b aria-hidden="true">*</b></span>
-                <input name="mobile" type="tel" autocomplete="tel" inputmode="tel" maxlength="20" required>
-              </label>
-              <label class="field">
-                <span>Gender</span>
-                <select name="gender">
-                  <option value="">Select gender</option>
-                  <option>Female</option>
-                  <option>Male</option>
-                  <option>Non-binary</option>
-                  <option>Prefer not to say</option>
-                  <option>Other</option>
-                </select>
-              </label>
-              <label class="field">
-                <span>City <b aria-hidden="true">*</b></span>
-                <input name="city" type="text" autocomplete="address-level2" maxlength="100" required>
-              </label>
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend>Professional Details</legend>
-            <div class="form-grid">
-              <label class="field field--wide">
-                <span>College / Organization Name <b aria-hidden="true">*</b></span>
-                <input name="organization" type="text" autocomplete="organization" maxlength="160" required>
-              </label>
-              <label class="field field--wide">
-                <span>Designation / Course <b aria-hidden="true">*</b></span>
-                <input name="designation" type="text" maxlength="120" required>
-              </label>
-              <label class="field field--wide">
-                <span>Participant Category <b aria-hidden="true">*</b></span>
-                <select name="participantCategory" required>
-                  <option value="">Select a category</option>
-                  <option>College / University Student</option>
-                  <option>Young Entrepreneur / Startup</option>
-                  <option>Industry Leader / Business Owner</option>
-                  <option>Educator / Innovation Mentor</option>
-                  <option>Investor / Ecosystem Partner</option>
-                </select>
-              </label>
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend>Participation Type</legend>
-            <label class="field">
-              <span>Select Participation Type <b aria-hidden="true">*</b></span>
-              <select name="participationType" required>
-                <option value="">Select participation type</option>
-                <option>Event Attendee</option>
-                <option>Sponsor</option>
-                <option>Business Stall</option>
-                <option>Brand Publishing</option>
-              </select>
-            </label>
-          </fieldset>
-
-          <label class="field message-field">
-            <span>Additional Message <small>(Optional)</small></span>
-            <textarea name="message" rows="4" maxlength="1000"></textarea>
+      <form id="registration-form">
+        <div class="grid">
+          <label class="field field-wide"><span>Full Name *</span>
+            <input name="fullName" autocomplete="name" maxlength="120" required>
           </label>
-
-          <section class="payment-summary" aria-labelledby="payment-title">
-            <h2 id="payment-title">Payment Summary</h2>
-            <div class="payment-row">
-              <span>Registration Fee</span>
-              <span>₹250</span>
-            </div>
-            <div class="payment-row payment-row--total">
-              <span>Total Amount</span>
-              <strong>₹250</strong>
-            </div>
-            <p class="payment-methods">UPI · Google Pay · PhonePe · Debit Card · Credit Card · Net Banking</p>
-          </section>
-
-          <p class="form-error" id="form-error" role="alert" tabindex="-1" hidden></p>
-          <p class="whatsapp-note">Your details are used only to process your registration. Payment is handled securely online.</p>
-          <button class="pay-button" id="pay-button" type="submit">Proceed to Payment – ₹250</button>
-        </form>
-      </section>
-
-      <section class="registration-card confirmation-card" id="confirmation" aria-live="polite" tabindex="-1" hidden>
-        <h2>REGISTRATION SUCCESSFUL!</h2>
-        <dl class="confirmation-details">
-          <div><dt>Registration ID</dt><dd id="confirmation-id"></dd></div>
-          <div><dt>Participant Name</dt><dd id="confirmation-name"></dd></div>
-          <div><dt>Amount Paid</dt><dd>₹250</dd></div>
-          <div><dt>Payment Status</dt><dd id="confirmation-status">PAID</dd></div>
-        </dl>
-        <button class="print-button" id="print-button" type="button">Print / Save Confirmation</button>
-      </section>
-    </main>
-
-    <aside class="event-reminder" aria-label="Event reminder">
-      <button
-        class="event-reminder__toggle"
-        id="event-reminder-toggle"
-        type="button"
-        aria-expanded="false"
-        aria-controls="event-reminder-details"
-      >
-        <span class="event-reminder__icon" aria-hidden="true">FD</span>
-        <span class="event-reminder__toggle-copy">
-          <strong id="event-reminder-summary">FOUNDER'S DIARY · 11 DEC</strong>
-          <span id="event-reminder-countdown">Loading countdown…</span>
-        </span>
-        <span class="event-reminder__chevron" aria-hidden="true">⌃</span>
-      </button>
-      <section class="event-reminder__details" id="event-reminder-details" hidden>
-        <p class="event-reminder__eyebrow">MARK YOUR CALENDAR</p>
-        <h2>FOUNDER'S DIARY <span>2026</span></h2>
-        <p class="event-reminder__date">11 December 2026</p>
-        <div class="event-reminder__timer" aria-label="Time remaining to the registration reminder date">
-          <div><strong id="reminder-days">--</strong><span>days</span></div>
-          <div><strong id="reminder-hours">--</strong><span>hrs</span></div>
-          <div><strong id="reminder-minutes">--</strong><span>min</span></div>
-          <div><strong id="reminder-seconds">--</strong><span>sec</span></div>
+          <label class="field"><span>Email Address *</span>
+            <input name="email" type="email" autocomplete="email" maxlength="254" required>
+          </label>
+          <label class="field"><span>Mobile Number *</span>
+            <input name="mobile" type="tel" autocomplete="tel" maxlength="20" required>
+          </label>
+          <label class="field"><span>City *</span>
+            <input name="city" autocomplete="address-level2" maxlength="100" required>
+          </label>
+          <label class="field"><span>College / Organization *</span>
+            <input name="college" autocomplete="organization" maxlength="160" required>
+          </label>
         </div>
-        <p class="event-reminder__deadline">
-          Registration reminder: <strong>by 9 December</strong>
-          <span>(2 days before the event)</span>
-        </p>
-        <p class="event-reminder__fee">Registration fee <strong>₹250</strong></p>
-        <button class="event-reminder__cta" id="event-reminder-register" type="button">
-          Register now
-        </button>
-      </section>
-    </aside>
-  </body>
+
+        <fieldset>
+          <legend>Participant Category *</legend>
+          <div class="choice-grid">
+            <label><input type="radio" name="participantCategory" value="College / University Student" required><span>College / University Student</span></label>
+            <label><input type="radio" name="participantCategory" value="Young Entrepreneur / Startup"><span>Young Entrepreneur / Startup</span></label>
+            <label><input type="radio" name="participantCategory" value="Industry Leader / Business Owner"><span>Industry Leader / Business Owner</span></label>
+            <label><input type="radio" name="participantCategory" value="Educator / Innovation Mentor"><span>Educator / Innovation Mentor</span></label>
+            <label><input type="radio" name="participantCategory" value="Investor / Ecosystem Partner"><span>Investor / Ecosystem Partner</span></label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Participation Type *</legend>
+          <div class="choice-grid choice-grid-three">
+            <label><input type="radio" name="participationType" value="Event Attendee" required><span>Event Attendee</span></label>
+            <label><input type="radio" name="participationType" value="Sponsor"><span>Sponsor</span></label>
+            <label><input type="radio" name="participationType" value="Business Stall"><span>Business Stall</span></label>
+            <label><input type="radio" name="participationType" value="Brand Publishing"><span>Brand Publishing</span></label>
+          </div>
+        </fieldset>
+
+        <label class="field field-wide utr-field"><span>UPI Transaction ID / UTR Number *</span>
+          <input name="utrNumber" maxlength="100" pattern="[A-Za-z0-9\-]{6,100}" title="Enter 6–100 letters, numbers, or hyphens" required>
+        </label>
+
+        <div class="upload-block">
+          <div class="upload-copy">
+            <strong>Payment Screenshot *</strong>
+            <span>JPG, JPEG, PNG or WebP · Maximum 5 MB</span>
+          </div>
+          <label class="upload-button" for="payment-screenshot">Choose Screenshot</label>
+          <input id="payment-screenshot" name="paymentScreenshot" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" required>
+          <button id="remove-screenshot" class="remove-button" type="button" hidden>Remove</button>
+          <img id="upload-preview" alt="Payment screenshot preview" hidden>
+        </div>
+
+        <p id="form-error" class="form-error" role="alert" tabindex="-1" hidden></p>
+        <button id="submit-button" class="submit-button" type="submit">SUBMIT REGISTRATION</button>
+        <p class="privacy">Payment is reviewed by the FU-GLIDE team. No payment status is confirmed automatically.</p>
+      </form>
+    </section>
+
+    <section class="confirmation" id="confirmation" aria-live="polite" tabindex="-1" hidden>
+      <div class="confirmation-mark">✓</div>
+      <p class="eyebrow">APPLICATION RECEIVED</p>
+      <h2>Registration Submitted Successfully</h2>
+      <p>Thank you for registering for FOUNDER'S DIARY 2026. Your registration details and payment proof have been received. Our team will verify your payment, and your official event invitation will be sent once verification is complete.</p>
+      <dl>
+        <div><dt>Registration ID</dt><dd id="confirmation-id"></dd></div>
+        <div><dt>Participant Name</dt><dd id="confirmation-name"></dd></div>
+        <div><dt>Submission Date</dt><dd id="confirmation-date"></dd></div>
+        <div><dt>Payment Status</dt><dd>PENDING VERIFICATION</dd></div>
+      </dl>
+      <p class="status-link-note">Save your private status link to check for updates after our team reviews your payment.</p>
+      <a id="status-link" class="status-link" href="/status.html" target="_blank" rel="noopener">VIEW REGISTRATION STATUS</a>
+      <p class="disclaimer">Your registration is not confirmed until your payment has been verified by our team.</p>
+    </section>
+  </main>
+</body>
 </html>
