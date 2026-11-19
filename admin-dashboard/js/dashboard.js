@@ -140,6 +140,165 @@ exportButton.addEventListener("click", async () => {
 
 logoutButton.addEventListener("click", logout);
 
+const participantsTab = document.getElementById("participantsTab");
+const manualPaymentsTab = document.getElementById("manualPaymentsTab");
+const participantsSection = document.getElementById("participantsSection");
+const manualPaymentsSection = document.getElementById("manualPaymentsSection");
+const manualTableBody = document.getElementById("manualRegistrationTableBody");
+const manualSearch = document.getElementById("manualSearch");
+const manualStatusFilter = document.getElementById("manualStatusFilter");
+const manualExportButton = document.getElementById("manualExportButton");
+
+function showDashboardSection(section) {
+  const manual = section === "manual";
+  participantsSection.hidden = manual;
+  manualPaymentsSection.hidden = !manual;
+  participantsTab.classList.toggle("active", !manual);
+  manualPaymentsTab.classList.toggle("active", manual);
+  if (manual) {
+    loadManualStats();
+    loadManualRegistrations();
+  }
+}
+
+async function loadManualStats() {
+  const session = await getSession();
+  if (!session) return;
+  const response = await fetch("/admin/api/manual/stats", {
+    credentials: "same-origin",
+    headers: { Accept: "application/json" }
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) return;
+  document.getElementById("manualTotalRegistrations").textContent = String(payload.totalRegistrations || 0);
+  document.getElementById("manualPendingRegistrations").textContent = String(payload.pendingRegistrations || 0);
+  document.getElementById("manualVerifiedRegistrations").textContent = String(payload.verifiedRegistrations || 0);
+  document.getElementById("manualRejectedRegistrations").textContent = String(payload.rejectedRegistrations || 0);
+  document.getElementById("manualVerifiedRevenue").textContent = formatMoney(payload.verifiedRevenue || 0);
+}
+
+async function loadManualRegistrations() {
+  const session = await getSession();
+  if (!session) return;
+  const params = new URLSearchParams();
+  if (manualSearch.value.trim()) params.set("search", manualSearch.value.trim());
+  if (manualStatusFilter.value) params.set("status", manualStatusFilter.value);
+  const response = await fetch(`/admin/api/manual/registrations?${params}`, {
+    credentials: "same-origin",
+    headers: { Accept: "application/json" }
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) return;
+  const registrations = payload.registrations || [];
+  if (!registrations.length) {
+    manualTableBody.innerHTML = '<tr><td colspan="7" class="empty-state">No manual registrations found.</td></tr>';
+    return;
+  }
+  manualTableBody.innerHTML = registrations.map((registration) => {
+    const id = escapeHtml(registration.registrationId || registration.id || "");
+    return `
+      <tr>
+        <td>${escapeHtml(registration.fullName || "-")}</td>
+        <td>${escapeHtml(registration.email || "-")}</td>
+        <td>${escapeHtml(registration.mobile || "-")}</td>
+        <td>${escapeHtml(registration.utrNumber || "-")}</td>
+        <td><span class="manual-status ${escapeHtml(registration.paymentStatus || "")}">${escapeHtml(registration.paymentStatus || "-")}</span></td>
+        <td>${formatDate(registration.submittedAt)}</td>
+        <td><button class="secondary" type="button" data-manual-details="${id}">View</button></td>
+      </tr>
+      <tr class="manual-details-row" id="manual-details-${id}" hidden>
+        <td colspan="7">
+          <div class="manual-details">
+            <dl>
+              <div><dt>Registration ID</dt><dd>${id}</dd></div>
+              <div><dt>City</dt><dd>${escapeHtml(registration.city || "-")}</dd></div>
+              <div><dt>College / Organization</dt><dd>${escapeHtml(registration.college || "-")}</dd></div>
+              <div><dt>Participant Category</dt><dd>${escapeHtml(registration.participantCategory || "-")}</dd></div>
+              <div><dt>Participation Type</dt><dd>${escapeHtml(registration.participationType || "-")}</dd></div>
+              <div><dt>Verified By</dt><dd>${escapeHtml(registration.verifiedBy || "-")}</dd></div>
+              <div><dt>Rejection Reason</dt><dd>${escapeHtml(registration.rejectionReason || "-")}</dd></div>
+            </dl>
+            <div class="manual-screenshot">
+              <img src="/admin/api/manual/registrations/${encodeURIComponent(id)}/screenshot" alt="Payment screenshot">
+              <input id="manual-reason-${id}" maxlength="500" placeholder="Rejection reason">
+              <div class="manual-actions">
+                <button class="approve" type="button" data-manual-approve="${id}">Approve payment</button>
+                <button class="danger" type="button" data-manual-reject="${id}">Reject payment</button>
+              </div>
+            </div>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+async function postManualAction(url, body) {
+  const csrfResponse = await fetch("/admin/api/session", {
+    credentials: "same-origin",
+    headers: { Accept: "application/json" }
+  });
+  const csrfPayload = await csrfResponse.json().catch(() => ({}));
+  const response = await fetch(url, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-CSRF-Token": csrfPayload.csrfToken || ""
+    },
+    body: JSON.stringify(body || {})
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "Action could not be completed.");
+  return payload;
+}
+
+participantsTab.addEventListener("click", () => showDashboardSection("participants"));
+manualPaymentsTab.addEventListener("click", () => showDashboardSection("manual"));
+manualSearch.addEventListener("input", loadManualRegistrations);
+manualStatusFilter.addEventListener("change", loadManualRegistrations);
+manualExportButton.addEventListener("click", () => {
+  window.location.href = "/admin/api/manual/export/csv";
+});
+
+manualTableBody.addEventListener("click", async (event) => {
+  const detailsId = event.target.dataset.manualDetails;
+  const approveId = event.target.dataset.manualApprove;
+  const rejectId = event.target.dataset.manualReject;
+  if (detailsId) {
+    const details = document.getElementById(`manual-details-${detailsId}`);
+    if (details) details.hidden = !details.hidden;
+  }
+  if (approveId) {
+    try {
+      await postManualAction(`/admin/api/manual/registrations/${encodeURIComponent(approveId)}/approve`);
+      await loadManualStats();
+      await loadManualRegistrations();
+    } catch (error) {
+      window.alert(error.message);
+    }
+  }
+  if (rejectId) {
+    const reasonInput = document.getElementById(`manual-reason-${rejectId}`);
+    const reason = reasonInput ? reasonInput.value.trim() : "";
+    if (!reason) {
+      window.alert("A rejection reason is required.");
+      return;
+    }
+    try {
+      await postManualAction(
+        `/admin/api/manual/registrations/${encodeURIComponent(rejectId)}/reject`,
+        { rejectionReason: reason }
+      );
+      await loadManualStats();
+      await loadManualRegistrations();
+    } catch (error) {
+      window.alert(error.message);
+    }
+  }
+});
+
 (async () => {
   await loadStats();
   await loadRegistrations();

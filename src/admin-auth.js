@@ -440,6 +440,199 @@ function createAdminAuth(options = {}) {
     }
   });
 
+  router.get("/api/manual/stats", requireAdminAuth, async (request, response) => {
+    const database = databaseResolver();
+    if (!database) {
+      return response.status(503).json({ error: "Admin data source is not available." });
+    }
+    try {
+      const snapshot = await database.collection("manual_payment_registrations").get();
+      const rows = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      return response.json({
+        totalRegistrations: rows.length,
+        pendingRegistrations: rows.filter((row) => row.paymentStatus === "PENDING_VERIFICATION").length,
+        verifiedRegistrations: rows.filter((row) => row.paymentStatus === "VERIFIED").length,
+        rejectedRegistrations: rows.filter((row) => row.paymentStatus === "REJECTED").length,
+        verifiedRevenue: rows
+          .filter((row) => row.paymentStatus === "VERIFIED")
+          .reduce((sum, row) => sum + Number(row.amount || 0), 0)
+      });
+    } catch {
+      return response.status(503).json({ error: "Unable to load manual payment statistics." });
+    }
+  });
+
+  router.get("/api/manual/registrations", requireAdminAuth, async (request, response) => {
+    const database = databaseResolver();
+    if (!database) {
+      return response.status(503).json({ error: "Admin data source is not available." });
+    }
+    try {
+      const snapshot = await database.collection("manual_payment_registrations").get();
+      let rows = snapshot.docs.map((doc) => {
+        const row = { id: doc.id, ...doc.data() };
+        delete row.statusAccessTokenHash;
+        return row;
+      });
+      const search = typeof request.query.search === "string"
+        ? request.query.search.trim().toLowerCase()
+        : "";
+      const status = typeof request.query.status === "string"
+        ? request.query.status.trim()
+        : "";
+      if (search) {
+        rows = rows.filter((row) => ["fullName", "email", "mobile", "utrNumber"]
+          .some((key) => String(row[key] || "").toLowerCase().includes(search)));
+      }
+      if (status) {
+        rows = rows.filter((row) => row.paymentStatus === status);
+      }
+      rows.sort((left, right) => {
+        const leftValue = left.submittedAt && typeof left.submittedAt.toMillis === "function"
+          ? left.submittedAt.toMillis()
+          : 0;
+        const rightValue = right.submittedAt && typeof right.submittedAt.toMillis === "function"
+          ? right.submittedAt.toMillis()
+          : 0;
+        return rightValue - leftValue;
+      });
+      return response.json({ registrations: rows });
+    } catch {
+      return response.status(503).json({ error: "Unable to load manual registrations." });
+    }
+  });
+
+  router.get("/api/manual/registrations/:id/screenshot", requireAdminAuth, async (request, response) => {
+    const database = databaseResolver();
+    if (!database) {
+      return response.status(503).json({ error: "Admin data source is not available." });
+    }
+    try {
+      const snapshot = await database.collection("manual_payment_registrations")
+        .doc(request.params.id)
+        .get();
+      if (!snapshot.exists) {
+        return response.status(404).json({ error: "Registration not found." });
+      }
+      const objectPath = snapshot.data().paymentScreenshotStoragePath;
+      if (typeof objectPath !== "string" ||
+          !objectPath.startsWith("manual-payment-screenshots/")) {
+        return response.status(404).json({ error: "Payment screenshot is unavailable." });
+      }
+      let buffer;
+      if (process.env.MANUAL_PAYMENT_STORAGE === "local") {
+        const fs = require("node:fs/promises");
+        const path = require("node:path");
+        const uploadDirectory = path.resolve(
+          path.join(__dirname, "..", "manual-registration"),
+          process.env.MANUAL_PAYMENT_UPLOAD_DIR || "private-uploads"
+        );
+        const destination = path.resolve(uploadDirectory, ...objectPath.split("/"));
+        if (!destination.startsWith(`${uploadDirectory}${path.sep}`)) {
+          return response.status(404).json({ error: "Payment screenshot is unavailable." });
+        }
+        buffer = await fs.readFile(destination);
+      } else {
+        const bucketName = process.env.FIREBASE_STORAGE_BUCKET ||
+          `${process.env.FIREBASE_PROJECT_ID}.firebasestorage.app`;
+        const { getStorage } = require("firebase-admin/storage");
+        const bucket = getStorage().bucket(bucketName);
+        [buffer] = await bucket.file(objectPath).download();
+      }
+      const contentType = objectPath.endsWith(".png") ? "image/png"
+        : objectPath.endsWith(".webp") ? "image/webp"
+          : "image/jpeg";
+      response.set("Cache-Control", "no-store");
+      response.set("Content-Disposition", "inline");
+      response.type(contentType);
+      return response.send(buffer);
+    } catch {
+      return response.status(404).json({ error: "Payment screenshot is unavailable." });
+    }
+  });
+
+  router.post("/api/manual/registrations/:id/approve", requireAdminAuth, async (request, response) => {
+    const database = databaseResolver();
+    if (!database) {
+      return response.status(503).json({ error: "Admin data source is not available." });
+    }
+    try {
+      const registrationRef = database.collection("manual_payment_registrations")
+        .doc(request.params.id);
+      const snapshot = await registrationRef.get();
+      if (!snapshot.exists) {
+        return response.status(404).json({ error: "Registration not found." });
+      }
+      await registrationRef.update({
+        paymentStatus: "VERIFIED",
+        invitationStatus: "READY_TO_SEND",
+        rejectionReason: null,
+        verifiedAt: new Date(),
+        verifiedBy: request.admin.sub
+      });
+      return response.json({ success: true, paymentStatus: "VERIFIED" });
+    } catch {
+      return response.status(500).json({ error: "The payment could not be approved." });
+    }
+  });
+
+  router.post("/api/manual/registrations/:id/reject", requireAdminAuth, async (request, response) => {
+    const database = databaseResolver();
+    if (!database) {
+      return response.status(503).json({ error: "Admin data source is not available." });
+    }
+    const reason = typeof request.body?.rejectionReason === "string"
+      ? request.body.rejectionReason.trim()
+      : "";
+    if (!reason || reason.length > 500) {
+      return response.status(400).json({ error: "A rejection reason is required." });
+    }
+    try {
+      const registrationRef = database.collection("manual_payment_registrations")
+        .doc(request.params.id);
+      const snapshot = await registrationRef.get();
+      if (!snapshot.exists) {
+        return response.status(404).json({ error: "Registration not found." });
+      }
+      await registrationRef.update({
+        paymentStatus: "REJECTED",
+        invitationStatus: "NOT_READY",
+        rejectionReason: reason,
+        verifiedAt: new Date(),
+        verifiedBy: request.admin.sub
+      });
+      return response.json({ success: true, paymentStatus: "REJECTED" });
+    } catch {
+      return response.status(500).json({ error: "The payment could not be rejected." });
+    }
+  });
+
+  router.get("/api/manual/export/csv", requireAdminAuth, async (request, response) => {
+    const database = databaseResolver();
+    if (!database) {
+      return response.status(503).json({ error: "Admin data source is not available." });
+    }
+    try {
+      const snapshot = await database.collection("manual_payment_registrations").get();
+      const headers = [
+        "registrationId", "fullName", "email", "mobile", "city", "college",
+        "participantCategory", "participationType", "utrNumber", "amount",
+        "paymentStatus", "invitationStatus", "submittedAt", "verifiedAt",
+        "verifiedBy", "rejectionReason"
+      ];
+      const quote = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+      const rows = snapshot.docs.map((doc) => {
+        const row = doc.data();
+        return headers.map((key) => quote(row[key])).join(",");
+      });
+      response.header("Content-Type", "text/csv; charset=utf-8");
+      response.header("Content-Disposition", "attachment; filename=manual-payment-registrations.csv");
+      return response.send([headers.join(","), ...rows].join("\n"));
+    } catch {
+      return response.status(503).json({ error: "Unable to export manual registrations." });
+    }
+  });
+
   return {
     router,
     requireAdminAuth,

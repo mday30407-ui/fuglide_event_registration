@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#080d18">
+  <title>Registration Status — FOUNDER'S DIARY 2026</title>
+  <link rel="stylesheet" href="/styles.css?v=20261119-status">
+  <script src="/status.js?v=20261119-status" defer></script>
+</head>
+<body>
+  <main class="confirmation status-page">
+    <div class="confirmation-mark" aria-hidden="true">FD</div>
+    <p class="eyebrow">FU-GLIDE · FOUNDER'S DIARY 2026</p>
+    <h1 class="status-title">Registration Status</h1>
+    <p class="status-intro">This is your private registration summary. Bookmark this page to return after payment review.</p>
+    <p id="status-loading" class="status-note" hidden>Loading your registration summary…</p>
+
+    <form id="status-form" class="status-form">
+      <label class="field"><span>Registration ID</span>
+        <input id="status-registration-id" autocomplete="off" required>
+      </label>
+      <label class="field"><span>Private access code</span>
+        <input id="status-access-token" type="password" autocomplete="off" required>
+      </label>
+      <p id="status-error" class="form-error" role="alert" hidden></p>
+      <button id="status-submit" class="submit-button" type="submit">CHECK STATUS</button>
+    </form>
+
+    <section id="status-result" class="status-result" aria-live="polite" hidden>
+      <h2 id="status-heading"></h2>
+      <dl>
+        <div><dt>Registration ID</dt><dd id="status-result-id"></dd></div>
+        <div><dt>Participant</dt><dd id="status-result-name"></dd></div>
+        <div><dt>Payment status</dt><dd id="status-result-payment"></dd></div>
+        <div><dt>Submitted</dt><dd id="status-result-submitted"></dd></div>
+        <div><dt>Verified</dt><dd id="status-result-verified"></dd></div>
+        <div><dt>Invitation status</dt><dd id="status-result-invitation"></dd></div>
+      </dl>
+      <p id="status-rejection-reason" class="disclaimer" hidden></p>
+      <p id="invitation-note" class="status-note" hidden>READY TO SEND means the invitation has not been sent automatically.</p>
+      <button id="refresh-status" class="status-link" type="button">REFRESH STATUS</button>
+    </section>
+
+    <a class="status-back" href="/">Back to registration</a>
+  </main>
+</body>
+</html>

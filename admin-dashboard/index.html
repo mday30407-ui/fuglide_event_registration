@@ -19,6 +19,12 @@
     </header>
 
     <main class="dashboard-shell">
+      <nav class="section-tabs" aria-label="Dashboard sections">
+        <button class="tab active" id="participantsTab" type="button">Participants</button>
+        <button class="tab" id="manualPaymentsTab" type="button">Manual Payment Verification</button>
+      </nav>
+
+      <div id="participantsSection">
       <section class="summary-grid">
         <article class="stat-card">
           <p>Total registrations</p>
@@ -61,6 +67,64 @@
           </table>
         </div>
       </section>
+      </div>
+
+      <div id="manualPaymentsSection" hidden>
+        <section class="summary-grid">
+          <article class="stat-card">
+            <p>Total submitted</p>
+            <strong id="manualTotalRegistrations">0</strong>
+          </article>
+          <article class="stat-card">
+            <p>Pending verification</p>
+            <strong id="manualPendingRegistrations">0</strong>
+          </article>
+          <article class="stat-card">
+            <p>Verified</p>
+            <strong id="manualVerifiedRegistrations">0</strong>
+          </article>
+          <article class="stat-card">
+            <p>Rejected</p>
+            <strong id="manualRejectedRegistrations">0</strong>
+          </article>
+          <article class="stat-card accent">
+            <p>Verified revenue</p>
+            <strong id="manualVerifiedRevenue">₹0</strong>
+          </article>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header manual-panel-header">
+            <h2>Manual Payment Registrations</h2>
+            <div class="manual-toolbar">
+              <input id="manualSearch" type="search" placeholder="Search name, email, mobile, or UTR">
+              <select id="manualStatusFilter" aria-label="Filter manual payment status">
+                <option value="">All statuses</option>
+                <option value="PENDING_VERIFICATION">Pending verification</option>
+                <option value="VERIFIED">Verified</option>
+                <option value="REJECTED">Rejected</option>
+              </select>
+              <button id="manualExportButton" class="secondary" type="button">Export CSV</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Mobile</th>
+                  <th>UTR</th>
+                  <th>Status</th>
+                  <th>Submitted</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="manualRegistrationTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
     </main>
 
     <script src="/admin/js/dashboard.js"></script>
