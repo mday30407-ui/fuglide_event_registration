@@ -404,6 +404,48 @@ function createAdminAuth(options = {}) {
     }
   });
 
+  router.delete("/api/registrations/:id", requireAdminAuth, async (request, response) => {
+    const registrationId = request.params.id;
+    if (!/^FD26-[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i.test(registrationId)) {
+      return response.status(400).json({ error: "Registration ID is invalid." });
+    }
+
+    const database = databaseResolver();
+    if (!database) {
+      return response.status(503).json({ error: "Admin data source is not available." });
+    }
+
+    try {
+      const registrationRef = database.collection("event_registrations").doc(registrationId);
+      const auditRef = database.collection("admin_audit_logs").doc();
+      await database.runTransaction(async (transaction) => {
+        const snapshot = await transaction.get(registrationRef);
+        if (!snapshot.exists) {
+          const error = new Error("Registration not found.");
+          error.statusCode = 404;
+          throw error;
+        }
+
+        const registration = snapshot.data();
+        transaction.delete(registrationRef);
+        transaction.create(auditRef, {
+          action: "REGISTRATION_DELETED",
+          registrationType: "razorpay",
+          registrationId,
+          paymentStatus: registration.paymentStatus || null,
+          adminEmail: request.admin.sub,
+          deletedAt: new Date()
+        });
+      });
+      return response.json({ success: true, registrationId });
+    } catch (error) {
+      if (error.statusCode === 404) {
+        return response.status(404).json({ error: "Registration not found." });
+      }
+      return response.status(503).json({ error: "Unable to delete registration." });
+    }
+  });
+
   router.get("/api/export/csv", requireAdminAuth, async (request, response) => {
     const database = databaseResolver();
     if (!database) {
@@ -499,6 +541,55 @@ function createAdminAuth(options = {}) {
       return response.json({ registrations: rows });
     } catch {
       return response.status(503).json({ error: "Unable to load manual registrations." });
+    }
+  });
+
+  router.delete("/api/manual/registrations/:id", requireAdminAuth, async (request, response) => {
+    const registrationId = request.params.id;
+    if (!/^FD26-M-[A-F0-9]{12}$/.test(registrationId)) {
+      return response.status(400).json({ error: "Registration ID is invalid." });
+    }
+
+    const database = databaseResolver();
+    if (!database) {
+      return response.status(503).json({ error: "Admin data source is not available." });
+    }
+
+    try {
+      const registrationRef = database.collection("manual_payment_registrations").doc(registrationId);
+      const duplicateLocks = database.collection("manual_payment_duplicate_locks");
+      const duplicateQuery = duplicateLocks.where("registrationId", "==", registrationId);
+      const auditRef = database.collection("admin_audit_logs").doc();
+      await database.runTransaction(async (transaction) => {
+        const snapshot = await transaction.get(registrationRef);
+        if (!snapshot.exists) {
+          const error = new Error("Registration not found.");
+          error.statusCode = 404;
+          throw error;
+        }
+        const duplicateSnapshot = await transaction.get(duplicateQuery);
+        const registration = snapshot.data();
+        transaction.delete(registrationRef);
+        for (const duplicate of duplicateSnapshot.docs) {
+          if (duplicate.data().registrationId === registrationId) {
+            transaction.delete(duplicate.ref);
+          }
+        }
+        transaction.create(auditRef, {
+          action: "REGISTRATION_DELETED",
+          registrationType: "manual",
+          registrationId,
+          paymentStatus: registration.paymentStatus || null,
+          adminEmail: request.admin.sub,
+          deletedAt: new Date()
+        });
+      });
+      return response.json({ success: true, registrationId });
+    } catch (error) {
+      if (error.statusCode === 404) {
+        return response.status(404).json({ error: "Registration not found." });
+      }
+      return response.status(503).json({ error: "Unable to delete registration." });
     }
   });
 

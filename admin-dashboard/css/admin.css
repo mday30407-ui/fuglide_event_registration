@@ -244,6 +244,12 @@ tr:hover td {
   margin-top: 10px;
 }
 
+.manual-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .manual-actions .approve {
   background: rgba(94, 229, 169, 0.16);
   color: #a4f6d2;
@@ -258,6 +264,39 @@ tr:hover td {
 .manual-status.PENDING_VERIFICATION { color: var(--warning); }
 .manual-status.VERIFIED { color: var(--success); }
 .manual-status.REJECTED { color: var(--danger); }
+
+.delete-registration-button {
+  min-height: 40px;
+  padding: 0.55rem 0.75rem;
+  background: rgba(255, 107, 120, 0.12);
+  color: #ffc3ca;
+  border: 1px solid rgba(255, 107, 120, 0.35);
+}
+
+.delete-dialog {
+  width: min(460px, calc(100vw - 32px));
+  padding: 0;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+}
+
+.delete-dialog::backdrop {
+  background: rgba(2, 8, 15, 0.78);
+  backdrop-filter: blur(4px);
+}
+
+.delete-dialog-content { padding: 24px; }
+.delete-dialog-content h2 { margin: 0 0 12px; }
+.delete-dialog-content > p { color: var(--muted); line-height: 1.55; }
+.delete-dialog dl { margin: 18px 0; display: grid; gap: 12px; }
+.delete-dialog dt { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; }
+.delete-dialog dd { margin: 4px 0 0; overflow-wrap: anywhere; }
+.delete-dialog .delete-verified-warning { color: var(--warning); }
+.delete-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+.delete-dialog button:disabled { opacity: 0.6; cursor: wait; }
 
 @media (max-width: 640px) {
   .topbar {
@@ -289,4 +328,8 @@ tr:hover td {
   .manual-details dl {
     grid-template-columns: 1fr;
   }
+
+  .delete-dialog-content { padding: 20px; }
+  .delete-dialog-actions { flex-direction: column-reverse; }
+  .delete-dialog-actions button { min-height: 46px; width: 100%; }
 }

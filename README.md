@@ -85,6 +85,14 @@ removed from the payment attempt after the registration is completed.
 `webhook_events` makes webhook retries idempotent. These collections
 are inaccessible to browser clients under the existing Firestore rules.
 
+The existing Admin Dashboard reads Razorpay registrations from
+`event_registrations` and manual UPI registrations from
+`manual_payment_registrations`. Administrators can delete records from either
+list after confirming the participant name and registration ID. Deletions are
+authenticated, CSRF-protected, audited in `admin_audit_logs`, and do not remove
+Razorpay payment records or manual payment screenshots from storage. Deleting a
+manual registration also removes only its matching duplicate-submission lock.
+
 ### Razorpay Test Mode and webhooks
 
 1. In Razorpay Dashboard, use **Test Mode** and create a test API key pair.

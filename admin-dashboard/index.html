@@ -61,6 +61,7 @@
                 <th>Participation Type</th>
                 <th>Payment</th>
                 <th>Registered</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody id="registrationTableBody"></tbody>
@@ -126,6 +127,22 @@
         </section>
       </div>
     </main>
+
+    <dialog id="deleteRegistrationDialog" class="delete-dialog" aria-labelledby="deleteDialogTitle">
+      <div class="delete-dialog-content">
+        <h2 id="deleteDialogTitle">Delete registration?</h2>
+        <p>Are you sure you want to permanently delete this registration? This action cannot be undone.</p>
+        <dl>
+          <div><dt>Participant</dt><dd id="deleteParticipantName"></dd></div>
+          <div><dt>Registration ID</dt><dd id="deleteRegistrationId"></dd></div>
+        </dl>
+        <p id="deleteVerifiedWarning" class="delete-verified-warning" hidden></p>
+        <div class="delete-dialog-actions">
+          <button id="cancelDeleteRegistration" class="secondary" type="button">Cancel</button>
+          <button id="confirmDeleteRegistration" class="danger" type="button">Confirm Delete</button>
+        </div>
+      </div>
+    </dialog>
 
     <script src="/admin/js/dashboard.js"></script>
   </body>

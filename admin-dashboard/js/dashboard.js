@@ -6,6 +6,13 @@ const tableBody = document.getElementById("registrationTableBody");
 const userBadge = document.getElementById("userBadge");
 const logoutButton = document.getElementById("logoutButton");
 const exportButton = document.getElementById("exportButton");
+const deleteDialog = document.getElementById("deleteRegistrationDialog");
+const deleteParticipantName = document.getElementById("deleteParticipantName");
+const deleteRegistrationId = document.getElementById("deleteRegistrationId");
+const deleteVerifiedWarning = document.getElementById("deleteVerifiedWarning");
+const confirmDeleteButton = document.getElementById("confirmDeleteRegistration");
+const cancelDeleteButton = document.getElementById("cancelDeleteRegistration");
+let pendingDelete = null;
 
 async function getSession() {
   const response = await fetch("/admin/api/session", {
@@ -53,21 +60,82 @@ function escapeHtml(value) {
 
 function populateRegistrations(registrations) {
   if (!registrations || registrations.length === 0) {
-    tableBody.innerHTML = '<tr><td colspan="6" class="empty-state">No registrations yet.</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="8" class="empty-state">No registrations yet.</td></tr>';
     return;
   }
 
-  tableBody.innerHTML = registrations.map((registration) => `
-    <tr>
-      <td>${escapeHtml(registration.fullName || "-")}</td>
-      <td>${escapeHtml(registration.email || "-")}</td>
-      <td>${escapeHtml(registration.city || "-")}</td>
-      <td>${escapeHtml(registration.participantCategory || registration.category || registration.participationType || "-")}</td>
-      <td>${escapeHtml(registration.participationType || "-")}</td>
-      <td>${escapeHtml(registration.paymentStatus || "PENDING")}</td>
-      <td>${formatDate(registration.registrationDate || registration.paidAt)}</td>
-    </tr>
-  `).join("");
+  tableBody.innerHTML = registrations.map((registration) => {
+    const id = String(registration.id || registration.registrationId || "");
+    const status = String(registration.paymentStatus || "PENDING");
+    return `
+      <tr>
+        <td>${escapeHtml(registration.fullName || "-")}</td>
+        <td>${escapeHtml(registration.email || "-")}</td>
+        <td>${escapeHtml(registration.city || "-")}</td>
+        <td>${escapeHtml(registration.participantCategory || registration.category || registration.participationType || "-")}</td>
+        <td>${escapeHtml(registration.participationType || "-")}</td>
+        <td>${escapeHtml(status)}</td>
+        <td>${formatDate(registration.registrationDate || registration.paidAt)}</td>
+        <td><button class="delete-registration-button" type="button" data-delete-type="razorpay" data-registration-id="${escapeHtml(id)}" data-registration-name="${escapeHtml(registration.fullName || "-")}" data-payment-status="${escapeHtml(status)}">Delete</button></td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function openDeleteDialog(type, id, name, status) {
+  pendingDelete = { type, id, name, status };
+  deleteParticipantName.textContent = name;
+  deleteRegistrationId.textContent = id;
+  deleteVerifiedWarning.hidden = status !== "PAID" && status !== "VERIFIED";
+  deleteVerifiedWarning.textContent = type === "razorpay"
+    ? "This registration has verified payment. Its Razorpay payment/order records will be retained. The same email may not be able to start another registration."
+    : "This registration has verified payment. The uploaded screenshot and external payment records will be retained.";
+  confirmDeleteButton.disabled = false;
+  confirmDeleteButton.textContent = "Confirm Delete";
+  deleteDialog.showModal();
+}
+
+async function confirmRegistrationDelete() {
+  if (!pendingDelete) return;
+  const target = pendingDelete;
+  confirmDeleteButton.disabled = true;
+  confirmDeleteButton.textContent = "Deleting...";
+  try {
+    const csrfResponse = await fetch("/admin/api/session", {
+      credentials: "same-origin",
+      headers: { Accept: "application/json" }
+    });
+    const csrfPayload = await csrfResponse.json().catch(() => ({}));
+    if (!csrfResponse.ok || !csrfPayload.authenticated) {
+      window.location.href = "/admin/login";
+      return;
+    }
+
+    const endpoint = target.type === "manual"
+      ? `/admin/api/manual/registrations/${encodeURIComponent(target.id)}`
+      : `/admin/api/registrations/${encodeURIComponent(target.id)}`;
+    const response = await fetch(endpoint, {
+      method: "DELETE",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        "X-CSRF-Token": csrfPayload.csrfToken || ""
+      }
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "Registration could not be deleted.");
+
+    deleteDialog.close();
+    if (target.type === "manual") {
+      await Promise.all([loadManualStats(), loadManualRegistrations()]);
+    } else {
+      await Promise.all([loadStats(), loadRegistrations()]);
+    }
+  } catch (error) {
+    window.alert(error.message);
+    confirmDeleteButton.disabled = false;
+    confirmDeleteButton.textContent = "Confirm Delete";
+  }
 }
 
 async function loadStats() {
@@ -204,7 +272,12 @@ async function loadManualRegistrations() {
         <td>${escapeHtml(registration.utrNumber || "-")}</td>
         <td><span class="manual-status ${escapeHtml(registration.paymentStatus || "")}">${escapeHtml(registration.paymentStatus || "-")}</span></td>
         <td>${formatDate(registration.submittedAt)}</td>
-        <td><button class="secondary" type="button" data-manual-details="${id}">View</button></td>
+        <td>
+          <div class="manual-row-actions">
+            <button class="secondary" type="button" data-manual-details="${id}">View</button>
+            <button class="delete-registration-button" type="button" data-delete-type="manual" data-registration-id="${id}" data-registration-name="${escapeHtml(registration.fullName || "-")}" data-payment-status="${escapeHtml(registration.paymentStatus || "")}">Delete</button>
+          </div>
+        </td>
       </tr>
       <tr class="manual-details-row" id="manual-details-${id}" hidden>
         <td colspan="7">
@@ -256,6 +329,20 @@ async function postManualAction(url, body) {
 
 participantsTab.addEventListener("click", () => showDashboardSection("participants"));
 manualPaymentsTab.addEventListener("click", () => showDashboardSection("manual"));
+tableBody.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-delete-type]");
+  if (button) {
+    openDeleteDialog(
+      button.dataset.deleteType,
+      button.dataset.registrationId,
+      button.dataset.registrationName,
+      button.dataset.paymentStatus
+    );
+  }
+});
+confirmDeleteButton.addEventListener("click", confirmRegistrationDelete);
+cancelDeleteButton.addEventListener("click", () => deleteDialog.close());
+deleteDialog.addEventListener("close", () => { pendingDelete = null; });
 manualSearch.addEventListener("input", loadManualRegistrations);
 manualStatusFilter.addEventListener("change", loadManualRegistrations);
 manualExportButton.addEventListener("click", () => {
@@ -263,9 +350,18 @@ manualExportButton.addEventListener("click", () => {
 });
 
 manualTableBody.addEventListener("click", async (event) => {
+  const deleteButton = event.target.closest("[data-delete-type]");
   const detailsId = event.target.dataset.manualDetails;
   const approveId = event.target.dataset.manualApprove;
   const rejectId = event.target.dataset.manualReject;
+  if (deleteButton) {
+    openDeleteDialog(
+      deleteButton.dataset.deleteType,
+      deleteButton.dataset.registrationId,
+      deleteButton.dataset.registrationName,
+      deleteButton.dataset.paymentStatus
+    );
+  }
   if (detailsId) {
     const details = document.getElementById(`manual-details-${detailsId}`);
     if (details) details.hidden = !details.hidden;
