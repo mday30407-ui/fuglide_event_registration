@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#080d18">
   <title>FOUNDER'S DIARY 2026 — Manual Registration</title>
-  <link rel="stylesheet" href="./styles.css?v=20261119-status">
-  <script src="./registration.js?v=20261119-status" defer></script>
+  <link rel="stylesheet" href="/styles.css?v=20261119-status">
+  <script src="/registration.js?v=20261119-status" defer></script>
 </head>
 <body>
   <main class="shell">
@@ -29,9 +29,7 @@
         <section class="upi-app-option" aria-labelledby="upi-app-title">
           <p class="payment-option-label" id="upi-app-title">Option A — Mobile users</p>
           <p class="payment-option-text">Tap below to open your UPI app and complete the payment.</p>
-          <button id="upi-pay-button" class="upi-pay-button" type="button">
-            PAY ₹100 USING UPI APP
-          </button>
+          <button id="upi-pay-button" class="upi-pay-button" type="button">PAY ₹100 USING UPI APP</button>
           <p id="upi-pay-status" class="payment-status" role="status" aria-live="polite"></p>
         </section>
 
@@ -50,7 +48,7 @@
             <img id="payment-qr" src="./assets/payment-qr.jpeg" alt="Official UPI payment QR code">
             <p id="qr-placeholder" class="qr-placeholder" hidden>Official UPI QR is being configured.<br>Please check back before payment.</p>
           </div>
-          <p class="qr-amount-notice">Before paying, verify that the UPI app shows ₹100. The existing QR image may prefill the previously configured amount.</p>
+          <p class="qr-amount-notice">Before paying, verify that the UPI app shows ₹100.</p>
         </section>
 
         <ol class="payment-instructions">
@@ -123,7 +121,7 @@
         <div class="upload-block">
           <div class="upload-copy">
             <strong>Payment Screenshot *</strong>
-            <span>Upload a screenshot of your successful UPI payment.</span>
+            <span>JPG, JPEG, PNG or WebP · Maximum 5 MB</span>
           </div>
           <label class="upload-button" for="payment-screenshot">Choose Screenshot</label>
           <input id="payment-screenshot" name="paymentScreenshot" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" required>
@@ -149,7 +147,7 @@
         <div><dt>Payment Status</dt><dd>PENDING VERIFICATION</dd></div>
       </dl>
       <p class="status-link-note">Save your private status link to check for updates after our team reviews your payment.</p>
-      <a id="status-link" class="status-link" href="./status.html" target="_blank" rel="noopener">VIEW REGISTRATION STATUS</a>
+      <a id="status-link" class="status-link" href="/status.html" target="_blank" rel="noopener">VIEW REGISTRATION STATUS</a>
       <p class="disclaimer">Your registration is not confirmed until your payment has been verified by our team.</p>
     </section>
   </main>

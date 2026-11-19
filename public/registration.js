@@ -17,7 +17,7 @@ if (upiPayButton && upiIdValue) {
     const parameters = new URLSearchParams({
       pa: upiIdValue,
       pn: "Vinoow Kuttyma",
-      am: "250",
+      am: "100",
       cu: "INR",
       tn: "Founder’s Diary 2026 Registration Fee"
     });
@@ -35,9 +35,9 @@ if (copyUpiButton && upiId) {
       upiPayStatus.textContent = "UPI ID copied successfully.";
     } catch {
       const selection = window.getSelection();
+      selection.removeAllRanges();
       const range = document.createRange();
       range.selectNodeContents(upiId);
-      selection.removeAllRanges();
       selection.addRange(range);
       upiPayStatus.textContent = `Copy this UPI ID manually: ${upiId.textContent.trim()}`;
     }
@@ -90,7 +90,7 @@ form.addEventListener("submit", async (event) => {
     const response = await fetch("/api/registrations", { method: "POST", body: new FormData(form) });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || "Registration could not be submitted.");
-    const statusLink = new URL("./status.html", window.location.href);
+    const statusLink = new URL("/status.html", window.location.origin);
     statusLink.hash = new URLSearchParams({
       registrationId: payload.registrationId,
       accessToken: payload.statusAccessToken

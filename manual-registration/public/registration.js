@@ -17,7 +17,7 @@ if (upiPayButton && upiIdValue) {
     const parameters = new URLSearchParams({
       pa: upiIdValue,
       pn: "Vinoow Kuttyma",
-      am: "250",
+      am: "100",
       cu: "INR",
       tn: "Founder’s Diary 2026 Registration Fee"
     });

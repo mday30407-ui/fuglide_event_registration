@@ -102,7 +102,7 @@ function createRegistrationRouter({ firestore, storage }) {
             registrationId,
             ...registration,
             statusAccessTokenHash: hashStatusAccessToken(statusAccessToken),
-            amount: 250,
+            amount: 100,
             utrNumber: registration.utrNumber,
             paymentScreenshotStoragePath: "",
             paymentStatus: "PENDING_VERIFICATION",
