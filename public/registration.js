@@ -52,7 +52,7 @@ form.addEventListener("submit", async (event) => {
     const response = await fetch("/api/registrations", { method: "POST", body: new FormData(form) });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || "Registration could not be submitted.");
-    const statusLink = new URL("/status.html", window.location.origin);
+    const statusLink = new URL("./status.html", window.location.href);
     statusLink.hash = new URLSearchParams({
       registrationId: payload.registrationId,
       accessToken: payload.statusAccessToken
