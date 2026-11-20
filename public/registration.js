@@ -45,6 +45,70 @@ qr?.addEventListener("error", () => {
   document.getElementById("qr-placeholder").hidden = false;
 });
 
+const qrShareButton = document.getElementById("share-qr-button");
+const qrShareStatus = document.getElementById("qr-share-status");
+let qrShareFile = null;
+let qrShareFileUnavailable = false;
+if (qrShareButton) {
+  qrShareButton.disabled = true;
+  if (qr) {
+    fetch(qr.currentSrc || qr.src)
+      .then((response) => {
+        if (!response.ok) throw new Error("The QR image could not be loaded.");
+        return response.blob();
+      })
+      .then((blob) => new File([blob], "payment-qr.jpeg", { type: "image/jpeg" }))
+      .then((file) => {
+        qrShareFile = file;
+      }, () => {
+        qrShareFileUnavailable = true;
+      })
+      .finally(() => {
+        qrShareButton.disabled = false;
+      });
+  } else {
+    qrShareFileUnavailable = true;
+    qrShareButton.disabled = false;
+  }
+}
+
+if (qrShareButton && qrShareStatus) {
+  qrShareButton.addEventListener("click", async () => {
+    qrShareStatus.textContent = "";
+    if (typeof navigator.share !== "function" || typeof navigator.canShare !== "function") {
+      qrShareStatus.textContent = "Sorry, sharing the QR image isn't supported on this device or browser.";
+      return;
+    }
+
+    if (!qrShareFile) {
+      qrShareStatus.textContent = qrShareFileUnavailable
+        ? "The QR image could not be prepared for sharing."
+        : "The QR image is still being prepared. Please try again in a moment.";
+      return;
+    }
+
+    const files = [qrShareFile];
+    let canShareFile = false;
+    try {
+      canShareFile = navigator.canShare({ files });
+    } catch {
+      canShareFile = false;
+    }
+    if (!canShareFile) {
+      qrShareStatus.textContent = "Sorry, sharing the QR image isn't supported on this device or browser.";
+      return;
+    }
+
+    try {
+      await navigator.share({ files, title: "Founder’s Diary 2026 UPI QR code" });
+    } catch (error) {
+      if (!error || error.name !== "AbortError") {
+        qrShareStatus.textContent = "The QR image couldn't be shared. Please try again.";
+      }
+    }
+  });
+}
+
 fileInput.addEventListener("change", () => {
   const file = fileInput.files[0];
   if (!file) return;

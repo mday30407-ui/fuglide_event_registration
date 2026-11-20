@@ -31,8 +31,12 @@ h1 span { display:block; color:var(--gold-light); }
 .upi-pay-button,.copy-upi-button { min-height:48px; border:0; border-radius:9px; cursor:pointer; font-weight:900; letter-spacing:.035em; transition:transform .16s ease,filter .16s ease; }
 .upi-pay-button { width:100%; background:linear-gradient(135deg,var(--gold-light),var(--gold)); color:#15120a; }
 .copy-upi-button { flex:0 0 auto; min-height:44px; border:1px solid var(--gold); background:transparent; color:var(--gold-light); padding:10px 12px; font-size:.72rem; }
-.upi-pay-button:active,.copy-upi-button:active { transform:scale(.98); }
-.upi-pay-button:hover,.copy-upi-button:hover { filter:brightness(1.06); }
+.share-qr-button { width:100%; min-height:46px; margin-top:12px; display:flex; align-items:center; justify-content:center; gap:9px; border:1px solid var(--gold); border-radius:9px; background:rgba(220,183,106,.07); color:var(--gold-light); cursor:pointer; font:inherit; font-size:.82rem; font-weight:800; letter-spacing:.025em; transition:transform .16s ease,filter .16s ease,background .16s ease; }
+.share-qr-button svg { width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.share-qr-button:disabled { cursor:wait; opacity:.72; }
+.upi-pay-button:active,.copy-upi-button:active,.share-qr-button:active { transform:scale(.98); }
+.upi-pay-button:hover,.copy-upi-button:hover,.share-qr-button:hover { filter:brightness(1.12); }
+.share-qr-button:focus-visible { outline:2px solid var(--gold-light); outline-offset:3px; }
 .payment-status { min-height:1.2em; margin:10px 0 0; color:var(--gold-light); font-size:.72rem; line-height:1.45; }
 .qr-option .qr-wrap { min-height:220px; }
 .payment-instructions { margin:2px 0 0; padding:16px 16px 16px 34px; border-top:1px solid var(--line); color:var(--muted); line-height:1.65; font-size:.76rem; }

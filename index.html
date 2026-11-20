@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#080d18">
   <title>FOUNDER'S DIARY 2026 — Manual Registration</title>
-  <link rel="stylesheet" href="/styles.css?v=20261119-status">
-  <script src="/registration.js?v=20261119-status" defer></script>
+  <link rel="stylesheet" href="/styles.css?v=20261120-share-qr">
+  <script src="/registration.js?v=20261120-share-qr" defer></script>
 </head>
 <body>
   <main class="shell">
@@ -49,6 +49,13 @@
             <p id="qr-placeholder" class="qr-placeholder" hidden>Official UPI QR is being configured.<br>Please check back before payment.</p>
           </div>
           <p class="qr-amount-notice">Before paying, verify that the UPI app shows ₹100.</p>
+          <button id="share-qr-button" class="share-qr-button" type="button">
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <path d="M14 5h5v5M19 5l-9 9M18 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"></path>
+            </svg>
+            <span>Share QR</span>
+          </button>
+          <p id="qr-share-status" class="payment-status" role="status" aria-live="polite"></p>
         </section>
 
         <ol class="payment-instructions">
