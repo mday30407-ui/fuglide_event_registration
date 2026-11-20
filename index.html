@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#080d18">
+  <link rel="icon" href="images/icon.png" type="image/png" />
   <title>FOUNDER'S DIARY 2026 — Manual Registration</title>
   <link rel="stylesheet" href="/styles.css?v=20261120-share-qr">
   <script src="/registration.js?v=20261120-share-qr" defer></script>
@@ -33,16 +34,10 @@
           <p id="upi-pay-status" class="payment-status" role="status" aria-live="polite"></p>
         </section> -->
 
-        <section class="upi-copy-option" aria-label="UPI ID">
-          <div>
-            <p class="payment-option-label">Option C — Copy UPI ID</p>
-            <code id="upi-id">vinoowkuttyma@oksbi</code>
-          </div>
-          <button id="copy-upi-id" class="copy-upi-button" type="button">COPY UPI ID</button>
-        </section>
+        
 
         <section class="qr-option" aria-labelledby="qr-title">
-          <p class="payment-option-label" id="qr-title">Option B — QR code payment</p>
+          <p class="payment-option-label" id="qr-title">Option A — QR code payment</p>
           <p class="payment-option-text">Scan this QR code using another mobile device to complete your payment.</p>
           <div class="qr-wrap">
             <img id="payment-qr" src="./assets/payment-qr.jpeg" alt="Official UPI payment QR code">
@@ -56,6 +51,13 @@
             <span>Share QR</span>
           </button>
           <p id="qr-share-status" class="payment-status" role="status" aria-live="polite"></p>
+        </section>
+        <section class="upi-copy-option" aria-label="UPI ID">
+          <div>
+            <p class="payment-option-label">Option B — Copy UPI ID</p>
+            <code id="upi-id">vinoowkuttyma@oksbi</code>
+          </div>
+          <button id="copy-upi-id" class="copy-upi-button" type="button">COPY UPI ID</button>
         </section>
 
         <ol class="payment-instructions">
