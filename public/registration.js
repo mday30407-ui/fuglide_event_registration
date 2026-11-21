@@ -49,6 +49,34 @@ const qrShareButton = document.getElementById("share-qr-button");
 const qrShareStatus = document.getElementById("qr-share-status");
 let qrShareFile = null;
 let qrShareFileUnavailable = false;
+
+function getQrFallbackUrl() {
+  if (qrShareFile) return URL.createObjectURL(qrShareFile);
+  if (qr) return qr.currentSrc || qr.src;
+  return null;
+}
+
+function downloadQrImage() {
+  const url = getQrFallbackUrl();
+  if (!url) {
+    qrShareStatus.textContent = "The QR image could not be opened.";
+    return;
+  }
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "payment-qr.jpeg";
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  if (qrShareFile) {
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  qrShareStatus.textContent = "QR image download started. Save or share it from Downloads.";
+}
+
 if (qrShareButton) {
   qrShareButton.disabled = true;
   if (qr) {
@@ -75,8 +103,8 @@ if (qrShareButton) {
 if (qrShareButton && qrShareStatus) {
   qrShareButton.addEventListener("click", async () => {
     qrShareStatus.textContent = "";
-    if (typeof navigator.share !== "function" || typeof navigator.canShare !== "function") {
-      qrShareStatus.textContent = "Sorry, sharing the QR image isn't supported on this device or browser.";
+    if (typeof navigator.share !== "function") {
+      downloadQrImage();
       return;
     }
 
@@ -88,22 +116,16 @@ if (qrShareButton && qrShareStatus) {
     }
 
     const files = [qrShareFile];
-    let canShareFile = false;
     try {
-      canShareFile = navigator.canShare({ files });
-    } catch {
-      canShareFile = false;
-    }
-    if (!canShareFile) {
-      qrShareStatus.textContent = "Sorry, sharing the QR image isn't supported on this device or browser.";
-      return;
-    }
-
-    try {
+      if (typeof navigator.canShare === "function" &&
+          !navigator.canShare({ files })) {
+        downloadQrImage();
+        return;
+      }
       await navigator.share({ files, title: "Founder’s Diary 2026 UPI QR code" });
     } catch (error) {
       if (!error || error.name !== "AbortError") {
-        qrShareStatus.textContent = "The QR image couldn't be shared. Please try again.";
+        downloadQrImage();
       }
     }
   });
