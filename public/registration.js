@@ -116,16 +116,31 @@ if (qrShareButton && qrShareStatus) {
     }
 
     const files = [qrShareFile];
+    const qrUrl = new URL(qr.currentSrc || qr.src, window.location.href).href;
     try {
       if (typeof navigator.canShare === "function" &&
           !navigator.canShare({ files })) {
-        downloadQrImage();
+        await navigator.share({
+          title: "Founder’s Diary 2026 UPI QR code",
+          text: "Founder’s Diary 2026 - UPI payment QR",
+          url: qrUrl
+        });
         return;
       }
       await navigator.share({ files, title: "Founder’s Diary 2026 UPI QR code" });
     } catch (error) {
-      if (!error || error.name !== "AbortError") {
-        downloadQrImage();
+      if (error && error.name === "AbortError") return;
+
+      try {
+        await navigator.share({
+          title: "Founder’s Diary 2026 UPI QR code",
+          text: "Founder’s Diary 2026 - UPI payment QR",
+          url: qrUrl
+        });
+      } catch (fallbackError) {
+        if (!fallbackError || fallbackError.name !== "AbortError") {
+          downloadQrImage();
+        }
       }
     }
   });
