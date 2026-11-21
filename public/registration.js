@@ -78,7 +78,6 @@ function downloadQrImage() {
 }
 
 if (qrShareButton) {
-  qrShareButton.disabled = true;
   if (qr) {
     fetch(qr.currentSrc || qr.src)
       .then((response) => {
@@ -103,45 +102,38 @@ if (qrShareButton) {
 if (qrShareButton && qrShareStatus) {
   qrShareButton.addEventListener("click", async () => {
     qrShareStatus.textContent = "";
+    const qrUrl = qr
+      ? new URL(qr.currentSrc || qr.src, window.location.href).href
+      : new URL("/assets/payment-qr.jpeg", window.location.href).href;
+
     if (typeof navigator.share !== "function") {
-      downloadQrImage();
+      window.open(qrUrl, "_blank", "noopener,noreferrer");
+      qrShareStatus.textContent = "Open the QR image, then use your browser’s Share option.";
       return;
     }
 
-    if (!qrShareFile) {
-      qrShareStatus.textContent = qrShareFileUnavailable
-        ? "The QR image could not be prepared for sharing."
-        : "The QR image is still being prepared. Please try again in a moment.";
-      return;
-    }
-
-    const files = [qrShareFile];
-    const qrUrl = new URL(qr.currentSrc || qr.src, window.location.href).href;
     try {
-      if (typeof navigator.canShare === "function" &&
-          !navigator.canShare({ files })) {
-        await navigator.share({
-          title: "Founder’s Diary 2026 UPI QR code",
-          text: "Founder’s Diary 2026 - UPI payment QR",
-          url: qrUrl
-        });
-        return;
-      }
-      await navigator.share({ files, title: "Founder’s Diary 2026 UPI QR code" });
-    } catch (error) {
-      if (error && error.name === "AbortError") return;
-
-      try {
-        await navigator.share({
-          title: "Founder’s Diary 2026 UPI QR code",
-          text: "Founder’s Diary 2026 - UPI payment QR",
-          url: qrUrl
-        });
-      } catch (fallbackError) {
-        if (!fallbackError || fallbackError.name !== "AbortError") {
-          downloadQrImage();
+      if (qrShareFile) {
+        const files = [qrShareFile];
+        if (typeof navigator.canShare !== "function" ||
+            navigator.canShare({ files })) {
+          await navigator.share({
+            files,
+            title: "Founder’s Diary 2026 UPI QR code"
+          });
+          return;
         }
       }
+
+      await navigator.share({
+        title: "Founder’s Diary 2026 UPI QR code",
+        text: "Founder’s Diary 2026 - UPI payment QR",
+        url: qrUrl
+      });
+    } catch (error) {
+      if (error && error.name === "AbortError") return;
+      window.open(qrUrl, "_blank", "noopener,noreferrer");
+      qrShareStatus.textContent = "Open the QR image, then use your browser’s Share option.";
     }
   });
 }
